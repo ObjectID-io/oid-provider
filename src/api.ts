@@ -7,6 +7,8 @@ import * as methods from "./methods";
 export type ObjectIdApi = {
   env: () => Promise<ResolvedEnv>;
   gasBudget: number;
+  useGasStation: boolean;
+  gasStation?: import("./types").gasStationCfg;
 
   // Non-tx helpers:
   get_object: (params: { objectId: string }) => Promise<any>;
@@ -59,6 +61,8 @@ export type ObjectIdApi = {
 export function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi {
   let _envPromise: Promise<ResolvedEnv> | null = null;
   const gasBudget = cfg.gasBudget ?? 10_000_000;
+  const useGasStation = !!cfg.useGasStation;
+  const gasStation = cfg.gasStation;
 
   async function env(): Promise<ResolvedEnv> {
     if (!_envPromise) _envPromise = resolveEnv(cfg);
@@ -68,6 +72,8 @@ export function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi {
   const apiRef: any = {
     env,
     gasBudget,
+    useGasStation,
+    gasStation,
 
     async get_object({ objectId }: { objectId: string }) {
       const e = await env();

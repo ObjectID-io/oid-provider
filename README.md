@@ -35,3 +35,19 @@ function Page() {
 
 ## Security
 This design uses a raw seed in the browser. Do not use in production without a secure key management / wallet flow.
+
+## Gas Station
+Set `useGasStation: true` and provide `gasStation` config:
+
+```ts
+{
+  useGasStation: true,
+  gasStation: {
+    gasStation1URL: "https://gas1.objectid.io",
+    gasStation1Token: "...",
+    gasStation2URL: "https://gas2.objectid.io",
+    gasStation2Token: "...",
+  }
+}
+```
+

@@ -1,14 +1,165 @@
-import type { IotaClient, IotaTransactionBlockResponse, ExecutionStatus } from "@iota/iota-sdk/client";
+import type {
+  IotaClient,
+  IotaTransactionBlockResponse,
+  ExecutionStatus,
+  TransactionEffects,
+} from "@iota/iota-sdk/client";
 import type { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
-import type { Transaction } from "@iota/iota-sdk/transactions";
-import type { TxExecResult } from "./types";
+import type { Transaction, ObjectRef } from "@iota/iota-sdk/transactions";
+import type { TxExecResult, gasStationCfg } from "./types";
 
+/**
+ * Browser-safe Uint8Array -> base64 encoding (no Buffer).
+ */
+function u8ToB64(u8: Uint8Array): string {
+  let s = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < u8.length; i += chunk) {
+    s += String.fromCharCode(...u8.subarray(i, i + chunk));
+  }
+  return btoa(s);
+}
+
+type ReserveGasResult = {
+  sponsor_address: string;
+  reservation_id: number;
+  gas_coins: ObjectRef[];
+};
+
+async function postJson<T>(url: string, token: string | undefined, body: any): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, data });
+  return data as T;
+}
+
+async function reserveGas(gasBudget: number, gasStationUrl: string, gasStationToken: string): Promise<ReserveGasResult> {
+  const resp = await postJson<any>(`${gasStationUrl}/v1/reserve_gas`, gasStationToken, {
+    gas_budget: gasBudget,
+    reserve_duration_secs: 10,
+  });
+  return resp?.result as ReserveGasResult;
+}
+
+async function sponsorSignAndSubmit(
+  reservationId: number,
+  txBytes: Uint8Array,
+  userSig: string,
+  gasStationUrl: string,
+  gasStationToken: string
+): Promise<TransactionEffects> {
+  const resp = await postJson<any>(`${gasStationUrl}/v1/execute_tx`, gasStationToken, {
+    reservation_id: reservationId,
+    tx_bytes: u8ToB64(txBytes),
+    user_sig: userSig,
+  });
+  return resp?.effects as TransactionEffects;
+}
+
+async function attemptWithGasStation(
+  network: string,
+  client: IotaClient,
+  keyPair: Ed25519Keypair,
+  tx: Transaction,
+  gasBudget: number,
+  gasStationUrl: string,
+  gasStationToken: string
+): Promise<IotaTransactionBlockResponse> {
+  const reserved = await reserveGas(gasBudget, gasStationUrl, gasStationToken);
+
+  tx.setSender(keyPair.toIotaAddress());
+  tx.setGasOwner(reserved.sponsor_address);
+  tx.setGasPayment(reserved.gas_coins);
+  tx.setGasBudget(gasBudget);
+
+  const unsignedTxBytes = await tx.build({ client });
+  const signedTx = await keyPair.signTransaction(unsignedTxBytes);
+  const userSig = (signedTx as any).signature;
+
+  const effects = await sponsorSignAndSubmit(reserved.reservation_id, unsignedTxBytes, userSig, gasStationUrl, gasStationToken);
+
+  return {
+    digest: (effects as any).transactionDigest,
+    effects,
+  } as IotaTransactionBlockResponse;
+}
+
+/**
+ * Signs and executes a transaction.
+ * - If useGasStation=true, tries gasStation1 then gasStation2 (if provided).
+ * - If useGasStation=false, executes directly with user's gas.
+ */
 export async function signAndExecute(
   client: IotaClient,
   keyPair: Ed25519Keypair,
-  tx: Transaction
+  tx: Transaction,
+  opts: {
+    network: string;
+    gasBudget: number;
+    useGasStation?: boolean;
+    gasStation?: gasStationCfg;
+  }
 ): Promise<TxExecResult> {
   try {
+    if (opts.useGasStation) {
+      const gs = opts.gasStation;
+      if (!gs?.gasStation1URL || !gs?.gasStation1Token) {
+        throw new Error("useGasStation=true but gasStation config is missing.");
+      }
+
+      try {
+        const txEffect = await attemptWithGasStation(
+          opts.network,
+          client,
+          keyPair,
+          tx,
+          opts.gasBudget,
+          gs.gasStation1URL,
+          gs.gasStation1Token
+        );
+        const status = txEffect.effects?.status as ExecutionStatus | undefined;
+        const ok = status?.status === "success";
+        return {
+          success: !!ok,
+          txDigest: txEffect.digest,
+          status,
+          error: ok ? undefined : status?.error,
+          txEffect,
+        };
+      } catch (e1) {
+        if (gs.gasStation2URL && gs.gasStation2Token) {
+          const txEffect = await attemptWithGasStation(
+            opts.network,
+            client,
+            keyPair,
+            tx,
+            opts.gasBudget,
+            gs.gasStation2URL,
+            gs.gasStation2Token
+          );
+          const status = txEffect.effects?.status as ExecutionStatus | undefined;
+          const ok = status?.status === "success";
+          return {
+            success: !!ok,
+            txDigest: txEffect.digest,
+            status,
+            error: ok ? undefined : status?.error,
+            txEffect,
+          };
+        }
+        throw e1;
+      }
+    }
+
+    // Direct execution (user pays gas)
     const result = await client.signAndExecuteTransaction({
       signer: keyPair,
       transaction: tx,

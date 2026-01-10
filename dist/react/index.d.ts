@@ -4,6 +4,12 @@ import { ExecutionStatus, IotaTransactionBlockResponse, IotaClient } from '@iota
 import { Ed25519Keypair } from '@iota/iota-sdk/keypairs/ed25519';
 
 type Network = "testnet" | "mainnet" | (string & {});
+type gasStationCfg = {
+    gasStation1URL: string;
+    gasStation1Token: string;
+    gasStation2URL?: string;
+    gasStation2Token?: string;
+};
 type ObjectIdProviderConfig = {
     network: Network;
     seed: string;
@@ -11,6 +17,10 @@ type ObjectIdProviderConfig = {
     graphqlProvider?: string;
     packageID?: string;
     documentPackageID?: string;
+    /** Whether to use a Gas Station sponsor for transaction gas */
+    useGasStation?: boolean;
+    /** Gas Station endpoints + access tokens (required if useGasStation=true) */
+    gasStation?: gasStationCfg;
     /** Default gas budget used when a method does not override it */
     gasBudget?: number;
 };
@@ -54,6 +64,8 @@ type ResolvedEnv = {
 type ObjectIdApi = {
     env: () => Promise<ResolvedEnv>;
     gasBudget: number;
+    useGasStation: boolean;
+    gasStation?: gasStationCfg;
     get_object: (params: {
         objectId: string;
     }) => Promise<any>;

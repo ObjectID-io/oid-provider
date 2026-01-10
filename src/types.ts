@@ -2,6 +2,14 @@ import type { IotaTransactionBlockResponse, ExecutionStatus } from "@iota/iota-s
 
 export type Network = "testnet" | "mainnet" | (string & {});
 
+export type gasStationCfg = {
+  gasStation1URL: string;
+  gasStation1Token: string;
+  gasStation2URL?: string;
+  gasStation2Token?: string;
+};
+
+
 export type ObjectIdProviderConfig = {
   network: Network;
   seed: string;
@@ -10,6 +18,12 @@ export type ObjectIdProviderConfig = {
   graphqlProvider?: string;
   packageID?: string;
   documentPackageID?: string;
+
+  /** Whether to use a Gas Station sponsor for transaction gas */
+  useGasStation?: boolean;
+
+  /** Gas Station endpoints + access tokens (required if useGasStation=true) */
+  gasStation?: gasStationCfg;
 
   /** Default gas budget used when a method does not override it */
   gasBudget?: number;
