@@ -1,3 +1,3 @@
-export { ObjectIdProvider } from "./ObjectIdProvider";
-export type { ObjectIdProviderProps } from "./ObjectIdProvider";
-export { useObjectId, useOptionalObjectId } from "./ObjectIdProvider";
+export { ObjectID } from "./ObjectIdProvider";
+export type { ObjectIDProps } from "./ObjectIdProvider";
+export { useObjectId, useOptionalObjectId, useObjectIDSession } from "./ObjectIdProvider";

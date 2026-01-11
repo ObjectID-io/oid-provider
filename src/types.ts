@@ -16,8 +16,18 @@ export type ObjectIdProviderConfig = {
 
   /** Optional overrides */
   graphqlProvider?: string;
-  packageID?: string;
-  documentPackageID?: string;
+
+  /** Package IDs for oid_object (index = version). If omitted, defaults are used. */
+  objectPackages?: string[];
+
+  /** Package IDs for oid_document (index = version). If omitted, defaults are used. */
+  documentPackages?: string[];
+
+  /** Default index for objectPackages (e.g. 0=V1, 1=V2). */
+  objectDefaultPackageVersion?: number;
+
+  /** Default index for documentPackages (e.g. 0=V1, 1=V2). */
+  documentDefaultPackageVersion?: number;
 
   /** Whether to use a Gas Station sponsor for transaction gas */
   useGasStation?: boolean;

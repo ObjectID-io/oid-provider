@@ -1,6 +1,6 @@
 {
   "name": "@objectid/objectid-provider",
-  "version": "0.1.1",
+  "version": "0.4.0",
   "description": "Client-side ObjectID Provider SDK: executes Move calls directly (no backend).",
   "license": "MIT",
   "type": "module",
@@ -27,7 +27,6 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {

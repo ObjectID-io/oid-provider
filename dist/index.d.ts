@@ -1,7 +1,7 @@
 import { ExecutionStatus, IotaTransactionBlockResponse, IotaClient } from '@iota/iota-sdk/client';
 import { Ed25519Keypair } from '@iota/iota-sdk/keypairs/ed25519';
 
-type Network = "testnet" | "mainnet" | (string & {});
+type Network$1 = "testnet" | "mainnet" | (string & {});
 type gasStationCfg = {
     gasStation1URL: string;
     gasStation1Token: string;
@@ -9,12 +9,18 @@ type gasStationCfg = {
     gasStation2Token?: string;
 };
 type ObjectIdProviderConfig = {
-    network: Network;
+    network: Network$1;
     seed: string;
     /** Optional overrides */
     graphqlProvider?: string;
-    packageID?: string;
-    documentPackageID?: string;
+    /** Package IDs for oid_object (index = version). If omitted, defaults are used. */
+    objectPackages?: string[];
+    /** Package IDs for oid_document (index = version). If omitted, defaults are used. */
+    documentPackages?: string[];
+    /** Default index for objectPackages (e.g. 0=V1, 1=V2). */
+    objectDefaultPackageVersion?: number;
+    /** Default index for documentPackages (e.g. 0=V1, 1=V2). */
+    documentDefaultPackageVersion?: number;
     /** Whether to use a Gas Station sponsor for transaction gas */
     useGasStation?: boolean;
     /** Gas Station endpoints + access tokens (required if useGasStation=true) */
@@ -116,4 +122,22 @@ type ObjectIdApi = {
 };
 declare function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi;
 
-export { type Network, type ObjectEdge, type ObjectIdApi, type ObjectIdProviderConfig, type TxExecResult, createObjectIdApi, type gasStationCfg };
+type Network = "testnet" | "mainnet";
+type ConfigPackageIds = {
+    testnet: string;
+    mainnet: string;
+};
+type LoadedConfig = {
+    source: "user" | "default";
+    objectId: string;
+    json: Record<string, any>;
+};
+declare function loadEffectiveConfig(network: Network, configPkgs: ConfigPackageIds, ownerAddress: string): Promise<LoadedConfig>;
+
+/**
+ * Built-in default config package IDs.
+ * Override at runtime by passing `configPackageIds` prop to <ObjectID />.
+ */
+declare const DEFAULT_CONFIG_PACKAGE_IDS: ConfigPackageIds;
+
+export { type ConfigPackageIds, DEFAULT_CONFIG_PACKAGE_IDS, type LoadedConfig, type Network, type ObjectEdge, type ObjectIdApi, type ObjectIdProviderConfig, type TxExecResult, createObjectIdApi, type gasStationCfg, loadEffectiveConfig };

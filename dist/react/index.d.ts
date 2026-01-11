@@ -3,26 +3,11 @@ import React from 'react';
 import { ExecutionStatus, IotaTransactionBlockResponse, IotaClient } from '@iota/iota-sdk/client';
 import { Ed25519Keypair } from '@iota/iota-sdk/keypairs/ed25519';
 
-type Network = "testnet" | "mainnet" | (string & {});
 type gasStationCfg = {
     gasStation1URL: string;
     gasStation1Token: string;
     gasStation2URL?: string;
     gasStation2Token?: string;
-};
-type ObjectIdProviderConfig = {
-    network: Network;
-    seed: string;
-    /** Optional overrides */
-    graphqlProvider?: string;
-    packageID?: string;
-    documentPackageID?: string;
-    /** Whether to use a Gas Station sponsor for transaction gas */
-    useGasStation?: boolean;
-    /** Gas Station endpoints + access tokens (required if useGasStation=true) */
-    gasStation?: gasStationCfg;
-    /** Default gas budget used when a method does not override it */
-    gasBudget?: number;
 };
 type TxExecResult = {
     success: boolean;
@@ -117,12 +102,48 @@ type ObjectIdApi = {
     update_publisher_did: (params: any) => Promise<TxExecResult>;
 };
 
-type ObjectIdProviderProps = {
-    config: ObjectIdProviderConfig | null;
+type Network = "testnet" | "mainnet";
+type ConfigPackageIds = {
+    testnet: string;
+    mainnet: string;
+};
+type LoadedConfig = {
+    source: "user" | "default";
+    objectId: string;
+    json: Record<string, any>;
+};
+
+type Session = {
+    network: Network;
+    seed: string;
+    gasBudget?: number;
+};
+type ObjectIDProps = {
+    /** Optional. If omitted, the SDK uses DEFAULT_CONFIG_PACKAGE_IDS. */
+    configPackageIds?: ConfigPackageIds;
     children: React.ReactNode;
 };
-declare function ObjectIdProvider({ config, children }: ObjectIdProviderProps): react_jsx_runtime.JSX.Element;
+/**
+ * ObjectID Provider that auto-loads configuration from the on-chain config package.
+ *
+ * External configuration: ONLY the config package ids (testnet/mainnet).
+ *
+ * Runtime flow:
+ * - call `connect({ network, seed, gasBudget? })`
+ * - provider derives address, loads user-owned Config if present; otherwise loads shared default Config
+ * - provider initializes the ObjectID API with the loaded JSON config
+ */
+declare function ObjectID({ configPackageIds, children }: ObjectIDProps): react_jsx_runtime.JSX.Element;
 declare function useOptionalObjectId(): ObjectIdApi | null;
 declare function useObjectId(): ObjectIdApi;
+declare function useObjectIDSession(): {
+    status: "error" | "idle" | "loading" | "ready";
+    error: string | null;
+    session: Session | null;
+    config: LoadedConfig | null;
+    connect: (session: Session) => Promise<void>;
+    disconnect: () => void;
+    refreshConfig: () => Promise<void>;
+};
 
-export { ObjectIdProvider, type ObjectIdProviderProps, useObjectId, useOptionalObjectId };
+export { ObjectID, type ObjectIDProps, useObjectIDSession, useObjectId, useOptionalObjectId };

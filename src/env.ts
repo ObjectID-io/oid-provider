@@ -24,13 +24,13 @@ export type ResolvedEnv = {
 
 const DEFAULTS = {
   testnet: {
-    packageID: "0x79857c1738f31d70165149678ae051d5bffbaa26dbb66a25ad835e09f2180ae5",
-    documentPackageID: "0x6e884a623d5661fca38cf9601cbc9fb85fa1d5aaff28a1fe96d260437b971ba7",
+    objectPackages: ["0x79857c1738f31d70165149678ae051d5bffbaa26dbb66a25ad835e09f2180ae5"],
+    documentPackages: ["0x6e884a623d5661fca38cf9601cbc9fb85fa1d5aaff28a1fe96d260437b971ba7"],
     graphqlProvider: "https://graphql.testnet.iota.cafe/",
   },
   mainnet: {
-    packageID: "0xc6b77b8ab151fda5c98b544bda1f769e259146dc4388324e6737ecb9ab1a7465",
-    documentPackageID: "0x23ba3cf060ea3fbb53542e1a3347ee1eb215913081fecdf1eda462c3101da556",
+    objectPackages: ["0xc6b77b8ab151fda5c98b544bda1f769e259146dc4388324e6737ecb9ab1a7465"],
+    documentPackages: ["0x23ba3cf060ea3fbb53542e1a3347ee1eb215913081fecdf1eda462c3101da556"],
     graphqlProvider: "https://graphql.mainnet.iota.cafe/",
   },
 } as const;
@@ -45,9 +45,16 @@ export async function resolveEnv(cfg: ObjectIdProviderConfig): Promise<ResolvedE
   const net = String(cfg.network);
   const d = net === "mainnet" ? DEFAULTS.mainnet : DEFAULTS.testnet;
 
-  const packageID = cfg.packageID ?? d.packageID;
-  const documentPackageID = cfg.documentPackageID ?? d.documentPackageID;
   const graphqlProvider = cfg.graphqlProvider ?? d.graphqlProvider;
+
+  const objPkgs = (cfg.objectPackages && cfg.objectPackages.length) ? cfg.objectPackages : d.objectPackages;
+  const docPkgs = (cfg.documentPackages && cfg.documentPackages.length) ? cfg.documentPackages : d.documentPackages;
+
+  const objIdx = Number.isFinite(cfg.objectDefaultPackageVersion as any) ? Number(cfg.objectDefaultPackageVersion) : 0;
+  const docIdx = Number.isFinite(cfg.documentDefaultPackageVersion as any) ? Number(cfg.documentDefaultPackageVersion) : 0;
+
+  const packageID = objPkgs[objIdx] ?? objPkgs[0];
+  const documentPackageID = docPkgs[docIdx] ?? docPkgs[0];
 
   const client = new IotaClient({ url: getFullnodeUrl(net as any) });
   const keyPair = Ed25519Keypair.deriveKeypairFromSeed(cfg.seed);

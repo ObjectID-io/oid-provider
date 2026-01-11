@@ -1,53 +1,50 @@
-# @objectid/objectid-provider
+# @objectid/objectid-provider (client-side)
 
-Client-side ObjectID SDK that executes Move calls directly using `@iota/iota-sdk`.
-No backend required: methods correspond to the former Express routes (now transformed into API methods).
+This package exposes:
+- A React Provider (`ObjectID`) that can auto-load ObjectID configuration from an on-chain config package
+- A typed API wrapper around ObjectID Move calls (methods)
 
-## Install (local)
-```bash
-npm i file:../objectid-client-provider-sdk
-```
+## React usage (auto config)
 
-## React usage
 ```tsx
-import { ObjectIdProvider, useObjectId } from "@objectid/objectid-provider/react";
+import { ObjectID, useObjectIDSession, useObjectId } from "@objectid/objectid-provider/react";
 
-function Root() {
+function LoginButton() {
+  const { connect, status, error, config } = useObjectIDSession();
+
+  async function onLogin() {
+    await connect({ network: "testnet", seed: "<64-hex-seed>", gasBudget: 10_000_000 });
+  }
+
   return (
-    <ObjectIdProvider config={ network: "testnet", seed: "<64-hex-seed>" }>
-      <App />
-    </ObjectIdProvider>
+    <div>
+      <button onClick={onLogin}>Connect</button>
+      {status === "loading" && <div>Loading config…</div>}
+      {error && <div>Error: {error}</div>}
+      {config && <pre>{JSON.stringify({ source: config.source, objectId: config.objectId }, null, 2)}</pre>}
+    </div>
   );
 }
 
-function Page() {
-  const oid = useObjectId();
-  // Example:
-  // const r = await oid.create_object({ creditToken, OIDcontrollerCap, object_type, ... });
+function App() {
+  return (
+    <ObjectID configPackageIds={{
+      testnet: "0x...CONFIG_PKG_TESTNET",
+      mainnet: "0x...CONFIG_PKG_MAINNET"
+    }}>
+      <LoginButton />
+    </ObjectID>
+  );
 }
 ```
 
-## Methods
-- 40 tx methods auto-generated from your `routes.zip`
-- `get_object({ objectId })`
-- `get_objects({ after })`
-- `document_did_string({ id })`
+## Config discovery (no GraphQL)
+The provider uses JSON-RPC only:
+- it looks for a user-owned config object of type `<configPkg>::oid_config::Config`
+- if not found, it discovers the shared default config object by querying the latest tx calling:
+  `<configPkg>::oid_config::set_default_json`
+  and extracting the mutated shared Config object id from `objectChanges`
 
-## Security
-This design uses a raw seed in the browser. Do not use in production without a secure key management / wallet flow.
 
-## Gas Station
-Set `useGasStation: true` and provide `gasStation` config:
-
-```ts
-{
-  useGasStation: true,
-  gasStation: {
-    gasStation1URL: "https://gas1.objectid.io",
-    gasStation1Token: "...",
-    gasStation2URL: "https://gas2.objectid.io",
-    gasStation2Token: "...",
-  }
-}
-```
-
+## Windows note (npm install)
+This package does not run `prepare` on install. Build it once with `npm run build` inside the SDK folder before consuming it via `file:`.
