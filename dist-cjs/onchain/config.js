@@ -1,5 +1,13 @@
-import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
-import { DEFAULT_SHARED_CONFIG_OBJECT_ID } from "./defaults";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getObjectJson = getObjectJson;
+exports.loadConfigJsonByObjectId = loadConfigJsonByObjectId;
+exports.configType = configType;
+exports.findUserConfigObjectId = findUserConfigObjectId;
+exports.loadPublicConfig = loadPublicConfig;
+exports.loadEffectiveConfig = loadEffectiveConfig;
+const client_1 = require("@iota/iota-sdk/client");
+const defaults_1 = require("./defaults");
 function normalizeHex(s) {
     const x = String(s ?? "").trim();
     if (!x)
@@ -17,7 +25,7 @@ function decodeJsonBytes(bytes) {
         return {};
     return JSON.parse(text);
 }
-export async function getObjectJson(client, objectId) {
+async function getObjectJson(client, objectId) {
     const resp = await client.getObject({
         id: normalizeHex(objectId),
         options: { showContent: true, showType: true },
@@ -31,11 +39,11 @@ export async function getObjectJson(client, objectId) {
  * Loads a config JSON stored as UTF-8 bytes in `Config.json` (vector<u8>) by object id.
  * Uses JSON-RPC only (browser CORS must allow the node endpoint).
  */
-export async function loadConfigJsonByObjectId(network, objectId) {
-    const client = new IotaClient({ url: getFullnodeUrl(network) });
+async function loadConfigJsonByObjectId(network, objectId) {
+    const client = new client_1.IotaClient({ url: (0, client_1.getFullnodeUrl)(network) });
     return await getObjectJson(client, objectId);
 }
-export function configType(packageId) {
+function configType(packageId) {
     // <pkg>::oid_config::Config
     return `${normalizeHex(packageId)}::oid_config::Config`;
 }
@@ -43,7 +51,7 @@ export function configType(packageId) {
  * Finds the latest user-owned Config object for the given address, if any.
  * IMPORTANT: filters strictly by StructType == <cfgPkg>::oid_config::Config (no suffix matching).
  */
-export async function findUserConfigObjectId(client, owner, configPkgId) {
+async function findUserConfigObjectId(client, owner, configPkgId) {
     const type = configType(configPkgId);
     const resp = await client.getOwnedObjects({
         owner: normalizeHex(owner),
@@ -69,16 +77,16 @@ export async function findUserConfigObjectId(client, owner, configPkgId) {
  * Loads the public/shared default config for a given network (pinned object id).
  * This does NOT attempt to load any user-owned config.
  */
-export async function loadPublicConfig(network) {
-    const client = new IotaClient({ url: getFullnodeUrl(network) });
-    const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[network];
+async function loadPublicConfig(network) {
+    const client = new client_1.IotaClient({ url: (0, client_1.getFullnodeUrl)(network) });
+    const defaultId = defaults_1.DEFAULT_SHARED_CONFIG_OBJECT_ID[network];
     if (!defaultId)
         throw new Error(`Missing DEFAULT_SHARED_CONFIG_OBJECT_ID for network=${network}`);
     const json = await getObjectJson(client, defaultId);
     return { source: "default", objectId: String(defaultId), json };
 }
-export async function loadEffectiveConfig(network, configPkgs, ownerAddress) {
-    const client = new IotaClient({ url: getFullnodeUrl(network) });
+async function loadEffectiveConfig(network, configPkgs, ownerAddress) {
+    const client = new client_1.IotaClient({ url: (0, client_1.getFullnodeUrl)(network) });
     const cfgPkg = network === "mainnet" ? configPkgs.mainnet : configPkgs.testnet;
     if (!cfgPkg)
         throw new Error(`Missing config packageId for network=${network}`);
@@ -87,7 +95,7 @@ export async function loadEffectiveConfig(network, configPkgs, ownerAddress) {
         const json = await getObjectJson(client, userId);
         return { source: "user", objectId: userId, json };
     }
-    const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[network];
+    const defaultId = defaults_1.DEFAULT_SHARED_CONFIG_OBJECT_ID[network];
     if (!defaultId) {
         throw new Error(`Missing DEFAULT_SHARED_CONFIG_OBJECT_ID for network=${network}`);
     }

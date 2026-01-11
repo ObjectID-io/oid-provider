@@ -14,6 +14,15 @@ export type ResolvedEnv = {
     policyTokenType: string;
     OIDobjectType: string;
 };
-export declare function asJsonString(v: unknown): string;
+/**
+ * Resolves runtime environment using ONLY the provider configuration (loaded from on-chain oid_config).
+ * No hardcoded defaults are used here.
+ */
 export declare function resolveEnv(cfg: ObjectIdProviderConfig): Promise<ResolvedEnv>;
+/**
+ * Converts an input value to a JSON string.
+ * - If value is already a string, returns it as-is.
+ * - Otherwise JSON.stringify(value). Undefined/null becomes "{}".
+ */
+export declare function asJsonString(value: unknown): string;
 //# sourceMappingURL=env.d.ts.map

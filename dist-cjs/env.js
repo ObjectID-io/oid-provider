@@ -1,6 +1,10 @@
-import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
-import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
-import { searchObjectsByType } from "./graphql";
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resolveEnv = resolveEnv;
+exports.asJsonString = asJsonString;
+const client_1 = require("@iota/iota-sdk/client");
+const ed25519_1 = require("@iota/iota-sdk/keypairs/ed25519");
+const graphql_1 = require("./graphql");
 function mustNonEmpty(name, value, ctx) {
     const s = typeof value === "string" ? value.trim() : String(value ?? "").trim();
     if (s)
@@ -17,7 +21,7 @@ function mustArray(name, v) {
  * Resolves runtime environment using ONLY the provider configuration (loaded from on-chain oid_config).
  * No hardcoded defaults are used here.
  */
-export async function resolveEnv(cfg) {
+async function resolveEnv(cfg) {
     const net = mustNonEmpty("network", cfg.network, cfg);
     const seed = mustNonEmpty("seed", cfg.seed, cfg);
     const graphqlProvider = mustNonEmpty("graphqlProvider", cfg.graphqlProvider, cfg);
@@ -33,14 +37,14 @@ export async function resolveEnv(cfg) {
     }
     const packageID = objectPackages[objVer];
     const documentPackageID = documentPackages[docVer];
-    const client = new IotaClient({ url: getFullnodeUrl(net) });
-    const keyPair = Ed25519Keypair.deriveKeypairFromSeed(seed);
+    const client = new client_1.IotaClient({ url: (0, client_1.getFullnodeUrl)(net) });
+    const keyPair = ed25519_1.Ed25519Keypair.deriveKeypairFromSeed(seed);
     const sender = keyPair.toIotaAddress();
     const tokenCreditType = `0x2::token::Token<${packageID}::oid_credit::OID_CREDIT>`;
     const policyTokenType = `0x2::token::TokenPolicy<${packageID}::oid_credit::OID_CREDIT>`;
     const OIDobjectType = `${packageID}::oid_object::OIDObject`;
     // Discover the policy object id via GraphQL (required for Move calls)
-    const edges = await searchObjectsByType(policyTokenType, null, graphqlProvider);
+    const edges = await (0, graphql_1.searchObjectsByType)(policyTokenType, null, graphqlProvider);
     if (!edges?.length)
         throw new Error("Cannot resolve policy object (no TokenPolicy found)");
     const policy = edges[0].node.address;
@@ -63,7 +67,7 @@ export async function resolveEnv(cfg) {
  * - If value is already a string, returns it as-is.
  * - Otherwise JSON.stringify(value). Undefined/null becomes "{}".
  */
-export function asJsonString(value) {
+function asJsonString(value) {
     if (typeof value === "string")
         return value;
     if (value === null || value === undefined)

@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { mkdirSync, rmSync, existsSync, copyFileSync } from "node:fs";
+import { rmSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 
 function sh(cmd) {
@@ -11,20 +11,12 @@ function cp(src, dst) {
   copyFileSync(src, dst);
 }
 
-function main() {
-  // clean
-  if (existsSync("dist")) rmSync("dist", { recursive: true, force: true });
-  if (existsSync("dist-cjs")) rmSync("dist-cjs", { recursive: true, force: true });
+if (existsSync("dist")) rmSync("dist", { recursive: true, force: true });
+if (existsSync("dist-cjs")) rmSync("dist-cjs", { recursive: true, force: true });
 
-  // ESM build with declarations
-  sh("npx tsc -p tsconfig.build.esm.json");
+sh("npx tsc -p tsconfig.build.esm.json");
+sh("npx tsc -p tsconfig.build.cjs.json");
 
-  // CJS build (JS only)
-  sh("npx tsc -p tsconfig.build.cjs.json");
-
-  // Copy CJS entry points into dist/ as .cjs files to match package.json exports
-  cp("dist-cjs/index.js", "dist/index.cjs");
-  cp("dist-cjs/react/index.js", "dist/react/index.cjs");
-}
-
-main();
+// Copy CJS outputs to dist/*.cjs to match package.json exports
+cp("dist-cjs/index.js", "dist/index.cjs");
+cp("dist-cjs/react/index.js", "dist/react/index.cjs");

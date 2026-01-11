@@ -1,13 +1,19 @@
-import { jsx as _jsx } from "react/jsx-runtime";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
-import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
-import { Transaction } from "@iota/iota-sdk/transactions";
-import { createObjectIdApi } from "../api";
-import { signAndExecute } from "../tx";
-import { loadPublicConfig, loadConfigJsonByObjectId } from "../onchain/config";
-import { DEFAULT_CONFIG_PACKAGE_IDS } from "../onchain/defaults";
-const C = createContext(undefined);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ObjectID = ObjectID;
+exports.useOptionalObjectId = useOptionalObjectId;
+exports.useObjectId = useObjectId;
+exports.useObjectIDSession = useObjectIDSession;
+const jsx_runtime_1 = require("react/jsx-runtime");
+const react_1 = require("react");
+const client_1 = require("@iota/iota-sdk/client");
+const ed25519_1 = require("@iota/iota-sdk/keypairs/ed25519");
+const transactions_1 = require("@iota/iota-sdk/transactions");
+const api_1 = require("../api");
+const tx_1 = require("../tx");
+const config_1 = require("../onchain/config");
+const defaults_1 = require("../onchain/defaults");
+const C = (0, react_1.createContext)(undefined);
 function isNonEmptyString(x) {
     return typeof x === "string" && x.trim().length > 0;
 }
@@ -60,23 +66,23 @@ function hexToU8a(hex) {
     }
     return bytes;
 }
-export function ObjectID({ configPackageIds, children }) {
-    const effectiveConfigPackageIds = configPackageIds ?? DEFAULT_CONFIG_PACKAGE_IDS;
-    const [selectedNetwork, setSelectedNetwork] = useState("testnet");
-    const [session, setSession] = useState(null);
-    const [publicConfig, setPublicConfig] = useState(null);
-    const [activeConfig, setActiveConfig] = useState(null);
-    const [api, setApi] = useState(null);
-    const [status, setStatus] = useState("idle");
-    const [error, setError] = useState(null);
+function ObjectID({ configPackageIds, children }) {
+    const effectiveConfigPackageIds = configPackageIds ?? defaults_1.DEFAULT_CONFIG_PACKAGE_IDS;
+    const [selectedNetwork, setSelectedNetwork] = (0, react_1.useState)("testnet");
+    const [session, setSession] = (0, react_1.useState)(null);
+    const [publicConfig, setPublicConfig] = (0, react_1.useState)(null);
+    const [activeConfig, setActiveConfig] = (0, react_1.useState)(null);
+    const [api, setApi] = (0, react_1.useState)(null);
+    const [status, setStatus] = (0, react_1.useState)("idle");
+    const [error, setError] = (0, react_1.useState)(null);
     // Load public config at startup (testnet by default)
-    useEffect(() => {
+    (0, react_1.useEffect)(() => {
         let cancelled = false;
         (async () => {
             setStatus("loading");
             setError(null);
             try {
-                const cfg = await loadPublicConfig("testnet");
+                const cfg = await (0, config_1.loadPublicConfig)("testnet");
                 if (cancelled)
                     return;
                 setSelectedNetwork("testnet");
@@ -95,16 +101,16 @@ export function ObjectID({ configPackageIds, children }) {
             cancelled = true;
         };
     }, []);
-    const buildApi = useCallback((sess, cfgJson) => {
+    const buildApi = (0, react_1.useCallback)((sess, cfgJson) => {
         const gasBudget = Number(sess.gasBudget ?? 10_000_000);
         const providerCfg = mapJsonToProviderConfig({ network: sess.network, seed: sess.seed, gasBudget }, cfgJson);
-        return createObjectIdApi(providerCfg);
+        return (0, api_1.createObjectIdApi)(providerCfg);
     }, []);
-    const selectNetwork = useCallback(async (network) => {
+    const selectNetwork = (0, react_1.useCallback)(async (network) => {
         setStatus("loading");
         setError(null);
         try {
-            const cfg = await loadPublicConfig(network);
+            const cfg = await (0, config_1.loadPublicConfig)(network);
             setSelectedNetwork(network);
             setPublicConfig(cfg);
             setActiveConfig({ ...cfg, source: "default" });
@@ -123,12 +129,12 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, [buildApi, session]);
-    const connect = useCallback(async (sess) => {
+    const connect = (0, react_1.useCallback)(async (sess) => {
         setStatus("loading");
         setError(null);
         try {
             // Always start from PUBLIC config for chosen network (no auto private cfg)
-            const cfg = await loadPublicConfig(sess.network);
+            const cfg = await (0, config_1.loadPublicConfig)(sess.network);
             setSelectedNetwork(sess.network);
             setSession(sess);
             setPublicConfig(cfg);
@@ -147,14 +153,14 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, [buildApi]);
-    const disconnect = useCallback(async () => {
+    const disconnect = (0, react_1.useCallback)(async () => {
         setStatus("loading");
         setError(null);
         try {
             setApi(null);
             setSession(null);
             // Reset to testnet public config
-            const cfg = await loadPublicConfig("testnet");
+            const cfg = await (0, config_1.loadPublicConfig)("testnet");
             setSelectedNetwork("testnet");
             setPublicConfig(cfg);
             setActiveConfig({ ...cfg, source: "default" });
@@ -166,11 +172,11 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, []);
-    const refreshPublicConfig = useCallback(async () => {
+    const refreshPublicConfig = (0, react_1.useCallback)(async () => {
         setStatus("loading");
         setError(null);
         try {
-            const cfg = await loadPublicConfig(selectedNetwork);
+            const cfg = await (0, config_1.loadPublicConfig)(selectedNetwork);
             setPublicConfig(cfg);
             // If active is public, refresh active too.
             setActiveConfig((prev) => {
@@ -197,11 +203,11 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, [activeConfig, buildApi, selectedNetwork, session]);
-    const usePublicConfig = useCallback(async () => {
+    const usePublicConfig = (0, react_1.useCallback)(async () => {
         setStatus("loading");
         setError(null);
         try {
-            const cfg = publicConfig ?? await loadPublicConfig(selectedNetwork);
+            const cfg = publicConfig ?? await (0, config_1.loadPublicConfig)(selectedNetwork);
             setPublicConfig(cfg);
             setActiveConfig({ ...cfg, source: "default" });
             if (session) {
@@ -219,7 +225,7 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, [buildApi, publicConfig, selectedNetwork, session]);
-    const applyCfg = useCallback(async (json) => {
+    const applyCfg = (0, react_1.useCallback)(async (json) => {
         if (!session)
             throw new Error("Not connected");
         const cfgPkg = session.network === "mainnet"
@@ -232,10 +238,10 @@ export function ObjectID({ configPackageIds, children }) {
         try {
             const s = JSON.stringify(json);
             const bytes = Array.from(new TextEncoder().encode(s));
-            const keyPair = Ed25519Keypair.deriveKeypairFromSeed(session.seed);
-            const client = new IotaClient({ url: getFullnodeUrl(session.network) });
+            const keyPair = ed25519_1.Ed25519Keypair.deriveKeypairFromSeed(session.seed);
+            const client = new client_1.IotaClient({ url: (0, client_1.getFullnodeUrl)(session.network) });
             const sender = keyPair.toIotaAddress();
-            const tx = new Transaction();
+            const tx = new transactions_1.Transaction();
             tx.moveCall({
                 target: `${cfgPkg}::oid_config::create_user_config`,
                 arguments: [tx.pure.vector("u8", bytes)],
@@ -245,7 +251,7 @@ export function ObjectID({ configPackageIds, children }) {
             tx.setSender(sender);
             const useGasStation = !!(json.useGasStation ?? json.use_gas_station);
             const gasStation = (json.gasStation ?? json.gas_station);
-            const r = await signAndExecute(client, keyPair, tx, {
+            const r = await (0, tx_1.signAndExecute)(client, keyPair, tx, {
                 network: String(session.network),
                 gasBudget,
                 useGasStation,
@@ -273,12 +279,12 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, [buildApi, effectiveConfigPackageIds, session]);
-    const applyCfgObject = useCallback(async (objectId) => {
+    const applyCfgObject = (0, react_1.useCallback)(async (objectId) => {
         setStatus("loading");
         setError(null);
         try {
             const net = session?.network ?? selectedNetwork;
-            const json = await loadConfigJsonByObjectId(net, objectId);
+            const json = await (0, config_1.loadConfigJsonByObjectId)(net, objectId);
             setActiveConfig({ source: "object", objectId: String(objectId), json });
             if (session) {
                 const nextApi = buildApi(session, json);
@@ -293,7 +299,7 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, [buildApi, selectedNetwork, session]);
-    const value = useMemo(() => ({
+    const value = (0, react_1.useMemo)(() => ({
         api,
         session,
         publicConfig,
@@ -324,24 +330,24 @@ export function ObjectID({ configPackageIds, children }) {
         applyCfg,
         applyCfgObject,
     ]);
-    return _jsx(C.Provider, { value: value, children: children });
+    return (0, jsx_runtime_1.jsx)(C.Provider, { value: value, children: children });
 }
-export function useOptionalObjectId() {
-    const ctx = useContext(C);
+function useOptionalObjectId() {
+    const ctx = (0, react_1.useContext)(C);
     if (!ctx)
         throw new Error("useOptionalObjectId must be used within ObjectID");
     return ctx.api;
 }
-export function useObjectId() {
-    const ctx = useContext(C);
+function useObjectId() {
+    const ctx = (0, react_1.useContext)(C);
     if (!ctx)
         throw new Error("useObjectId must be used within ObjectID");
     if (!ctx.api)
         throw new Error("ObjectID API not initialized. Call connect({network, seed}) first.");
     return ctx.api;
 }
-export function useObjectIDSession() {
-    const ctx = useContext(C);
+function useObjectIDSession() {
+    const ctx = (0, react_1.useContext)(C);
     if (!ctx)
         throw new Error("useObjectIDSession must be used within ObjectID");
     return ctx;
