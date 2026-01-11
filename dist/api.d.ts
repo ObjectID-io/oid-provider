@@ -1,0 +1,59 @@
+import type { ObjectIdProviderConfig, TxExecResult, ObjectEdge } from "./types";
+import { type ResolvedEnv } from "./env";
+export type ObjectIdApi = {
+    env: () => Promise<ResolvedEnv>;
+    gasBudget: number;
+    useGasStation: boolean;
+    gasStation?: import("./types").gasStationCfg;
+    get_object: (params: {
+        objectId: string;
+    }) => Promise<any>;
+    get_objects: (params: {
+        after?: string | null;
+    }) => Promise<ObjectEdge[]>;
+    document_did_string: (params: {
+        id: string;
+    }) => string;
+    add_approver_did: (params: any) => Promise<TxExecResult>;
+    add_document_credit: (params: any) => Promise<TxExecResult>;
+    add_editors_did: (params: any) => Promise<TxExecResult>;
+    alert_message: (params: any) => Promise<TxExecResult>;
+    anonymous_message: (params: any) => Promise<TxExecResult>;
+    append_change_log: (params: any) => Promise<TxExecResult>;
+    approve_document: (params: any) => Promise<TxExecResult>;
+    control_message: (params: any) => Promise<TxExecResult>;
+    counter_set_value: (params: any) => Promise<TxExecResult>;
+    counter_stepdown: (params: any) => Promise<TxExecResult>;
+    counter_stepup: (params: any) => Promise<TxExecResult>;
+    create_component: (params: any) => Promise<TxExecResult>;
+    create_counter: (params: any) => Promise<TxExecResult>;
+    create_document: (params: any) => Promise<TxExecResult>;
+    create_event: (params: any) => Promise<TxExecResult>;
+    create_object: (params: any) => Promise<TxExecResult>;
+    creator_message: (params: any) => Promise<TxExecResult>;
+    delete_component: (params: any) => Promise<TxExecResult>;
+    delete_counter: (params: any) => Promise<TxExecResult>;
+    delete_document: (params: any) => Promise<TxExecResult>;
+    delete_event: (params: any) => Promise<TxExecResult>;
+    delete_object: (params: any) => Promise<TxExecResult>;
+    message: (params: any) => Promise<TxExecResult>;
+    remove_approver_did: (params: any) => Promise<TxExecResult>;
+    remove_editors_did: (params: any) => Promise<TxExecResult>;
+    update_agent_did: (params: any) => Promise<TxExecResult>;
+    update_document_mutable_metadata: (params: any) => Promise<TxExecResult>;
+    update_document_owner_did: (params: any) => Promise<TxExecResult>;
+    update_document_status: (params: any) => Promise<TxExecResult>;
+    update_document_url: (params: any) => Promise<TxExecResult>;
+    update_document_url_hash: (params: any) => Promise<TxExecResult>;
+    update_event_mutable_metadata: (params: any) => Promise<TxExecResult>;
+    update_geo_location: (params: any) => Promise<TxExecResult>;
+    update_geolocation: (params: any) => Promise<TxExecResult>;
+    update_object: (params: any) => Promise<TxExecResult>;
+    update_object_did: (params: any) => Promise<TxExecResult>;
+    update_object_mutable_metadata: (params: any) => Promise<TxExecResult>;
+    update_op_code: (params: any) => Promise<TxExecResult>;
+    update_owner_did: (params: any) => Promise<TxExecResult>;
+    update_publisher_did: (params: any) => Promise<TxExecResult>;
+};
+export declare function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi;
+//# sourceMappingURL=api.d.ts.map
