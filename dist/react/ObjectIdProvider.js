@@ -11,6 +11,41 @@ const C = createContext(undefined);
 function isNonEmptyString(x) {
     return typeof x === "string" && x.trim().length > 0;
 }
+function withTimeout(p, ms = 15_000, label = "operation") {
+    return Promise.race([
+        p,
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timeout (${ms}ms)`)), ms)),
+    ]);
+}
+function cacheKey(network) {
+    return `objectid_public_cfg_${network}`;
+}
+function readCachedPublic(network) {
+    try {
+        const raw = localStorage.getItem(cacheKey(network));
+        if (!raw)
+            return null;
+        const obj = JSON.parse(raw);
+        if (!obj || typeof obj !== "object")
+            return null;
+        if (typeof obj.objectId !== "string" || !obj.objectId)
+            return null;
+        if (!obj.json || typeof obj.json !== "object")
+            return null;
+        return { objectId: obj.objectId, json: obj.json };
+    }
+    catch {
+        return null;
+    }
+}
+function writeCachedPublic(network, cfg) {
+    try {
+        localStorage.setItem(cacheKey(network), JSON.stringify({ objectId: cfg.objectId, json: cfg.json }));
+    }
+    catch {
+        // ignore quota / privacy mode
+    }
+}
 function mapJsonToProviderConfig(base, j) {
     const objectPackages = j.objectPackages ?? j.object_packages;
     const documentPackages = j.documentPackages ?? j.document_packages;
@@ -45,7 +80,9 @@ function mapJsonToProviderConfig(base, j) {
     };
 }
 function hexToU8a(hex) {
-    const s = String(hex || "").trim().replace(/^0x/i, "");
+    const s = String(hex || "")
+        .trim()
+        .replace(/^0x/i, "");
     if (!s)
         throw new Error("Missing seed");
     if (s.length % 2 !== 0)
@@ -69,32 +106,55 @@ export function ObjectID({ configPackageIds, children }) {
     const [api, setApi] = useState(null);
     const [status, setStatus] = useState("idle");
     const [error, setError] = useState(null);
-    // Load public config at startup (testnet by default)
+    // Load public config at startup (selectedNetwork defaults to testnet).
+    // Uses localStorage cache to avoid blocking reloads; refreshes in background.
     useEffect(() => {
         let cancelled = false;
-        (async () => {
+        const net = selectedNetwork;
+        // 1) Fast path: cached public config
+        const cached = readCachedPublic(net);
+        if (cached) {
+            setPublicConfig({ source: "default", objectId: cached.objectId, json: cached.json });
+            setActiveConfig({ source: "default", objectId: cached.objectId, json: cached.json });
+            setStatus("ready");
+            setError(null);
+        }
+        else {
             setStatus("loading");
             setError(null);
+        }
+        // 2) Refresh from chain (always), but never leave infinite loading
+        (async () => {
             try {
-                const cfg = await loadPublicConfig("testnet");
+                const cfg = await withTimeout(loadPublicConfig(net), 15_000, `loadPublicConfig(${net})`);
                 if (cancelled)
                     return;
-                setSelectedNetwork("testnet");
                 setPublicConfig(cfg);
-                setActiveConfig({ ...cfg, source: "default" });
+                setActiveConfig((prev) => {
+                    // if active is public OR nothing yet, update active too; if active is object, keep it
+                    if (!prev || prev.source === "default")
+                        return { ...cfg, source: "default" };
+                    return prev;
+                });
+                writeCachedPublic(net, { objectId: cfg.objectId, json: cfg.json });
+                // If we were loading with no cache, mark ready now.
                 setStatus("ready");
+                setError(null);
             }
             catch (e) {
                 if (cancelled)
                     return;
-                setStatus("error");
+                // If we already had cache, keep ready and show no blocking error.
+                // If we had no cache and were loading, move to error (not infinite loading).
+                setStatus(cached ? "ready" : "error");
                 setError(e?.message ?? String(e));
             }
         })();
         return () => {
             cancelled = true;
         };
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedNetwork]);
     const buildApi = useCallback((sess, cfgJson) => {
         const gasBudget = Number(sess.gasBudget ?? 10_000_000);
         const providerCfg = mapJsonToProviderConfig({ network: sess.network, seed: sess.seed, gasBudget }, cfgJson);
@@ -201,7 +261,7 @@ export function ObjectID({ configPackageIds, children }) {
         setStatus("loading");
         setError(null);
         try {
-            const cfg = publicConfig ?? await loadPublicConfig(selectedNetwork);
+            const cfg = publicConfig ?? (await loadPublicConfig(selectedNetwork));
             setPublicConfig(cfg);
             setActiveConfig({ ...cfg, source: "default" });
             if (session) {
@@ -222,9 +282,7 @@ export function ObjectID({ configPackageIds, children }) {
     const applyCfg = useCallback(async (json) => {
         if (!session)
             throw new Error("Not connected");
-        const cfgPkg = session.network === "mainnet"
-            ? effectiveConfigPackageIds.mainnet
-            : effectiveConfigPackageIds.testnet;
+        const cfgPkg = session.network === "mainnet" ? effectiveConfigPackageIds.mainnet : effectiveConfigPackageIds.testnet;
         if (!cfgPkg)
             throw new Error(`Missing config packageId for network=${session.network}`);
         setStatus("loading");

@@ -4,6 +4,7 @@ type Session = {
     network: Network;
     seed: string;
     gasBudget?: number;
+    did?: string;
 };
 type ActiveConfig = LoadedConfig & {
     source: "default" | "object";
