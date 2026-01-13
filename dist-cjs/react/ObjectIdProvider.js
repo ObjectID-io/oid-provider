@@ -86,9 +86,7 @@ function mapJsonToProviderConfig(base, j) {
     };
 }
 function hexToU8a(hex) {
-    const s = String(hex || "")
-        .trim()
-        .replace(/^0x/i, "");
+    const s = String(hex || "").trim().replace(/^0x/i, "");
     if (!s)
         throw new Error("Missing seed");
     if (s.length % 2 !== 0)
@@ -267,7 +265,7 @@ function ObjectID({ configPackageIds, children }) {
         setStatus("loading");
         setError(null);
         try {
-            const cfg = publicConfig ?? (await (0, config_1.loadPublicConfig)(selectedNetwork));
+            const cfg = publicConfig ?? await (0, config_1.loadPublicConfig)(selectedNetwork);
             setPublicConfig(cfg);
             setActiveConfig({ ...cfg, source: "default" });
             if (session) {
@@ -288,7 +286,9 @@ function ObjectID({ configPackageIds, children }) {
     const applyCfg = (0, react_1.useCallback)(async (json) => {
         if (!session)
             throw new Error("Not connected");
-        const cfgPkg = session.network === "mainnet" ? effectiveConfigPackageIds.mainnet : effectiveConfigPackageIds.testnet;
+        const cfgPkg = session.network === "mainnet"
+            ? effectiveConfigPackageIds.mainnet
+            : effectiveConfigPackageIds.testnet;
         if (!cfgPkg)
             throw new Error(`Missing config packageId for network=${session.network}`);
         setStatus("loading");

@@ -48,3 +48,20 @@ The provider uses JSON-RPC only:
 
 ## Windows note (npm install)
 This package does not run `prepare` on install. Build it once with `npm run build` inside the SDK folder before consuming it via `file:`.
+
+
+## High-level wrapper: createOid()
+
+This version includes a wrapper with an explicit initialization phase.
+
+```ts
+import { createOid } from "@objectid/objectid-provider";
+
+const oid = createOid();
+
+// Any tx method before init throws "not initialized"
+await oid.config(did, seed, network);
+
+console.log(oid.session.address);
+const r = await oid.create_object({ /* ... */ });
+```
