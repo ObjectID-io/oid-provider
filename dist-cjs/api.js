@@ -5,6 +5,7 @@ const env_1 = require("./env");
 const graphql_1 = require("./graphql");
 const getObject_1 = require("./getObject");
 const methods = require("./methods");
+const identity_1 = require("./onchain/identity");
 function createObjectIdApi(cfg) {
     let _envPromise = null;
     const gasBudget = cfg.gasBudget ?? 10_000_000;
@@ -32,6 +33,10 @@ function createObjectIdApi(cfg) {
             const raw = String(id || "").trim();
             const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
             return "did:iota:0x" + hex.toLowerCase();
+        },
+        async resolveDid(didDocObj) {
+            const e = await env();
+            return (0, identity_1.resolveDID)(String(didDocObj || '').trim(), e.client, e.network);
         },
         // Tx methods below
         add_approver_did: (params) => methods.add_approver_did(apiRef, params),

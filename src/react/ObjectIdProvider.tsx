@@ -67,6 +67,8 @@ type Ctx = {
 
   /** Loads a config objectId and sets it as active config (and rebuilds API). */
   applyCfgObject: (objectId: string) => Promise<string>;
+
+  /** Resolve a DID by Alias object id (DID Document object id). Works also before connect(). */
 };
 
 const C = createContext<Ctx | undefined>(undefined);

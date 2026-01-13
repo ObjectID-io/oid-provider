@@ -3,6 +3,7 @@ import { resolveEnv, type ResolvedEnv } from "./env";
 import { searchObjectsByType } from "./graphql";
 import { getObject } from "./getObject";
 import * as methods from "./methods";
+import { resolveDID as resolveDIDImpl } from "./onchain/identity";
 
 export type ObjectIdApi = {
   env: () => Promise<ResolvedEnv>;
@@ -14,6 +15,7 @@ export type ObjectIdApi = {
   get_object: (params: { objectId: string }) => Promise<any>;
   get_objects: (params: { after?: string | null }) => Promise<ObjectEdge[]>;
   document_did_string: (params: { id: string }) => string;
+  resolveDid: (didDocObj: string) => Promise<any>;
 
   // Tx methods:
   add_approver_did: (params: any) => Promise<TxExecResult>;
@@ -89,6 +91,11 @@ export function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi {
       const raw = String(id || "").trim();
       const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
       return "did:iota:0x" + hex.toLowerCase();
+    },
+
+    async resolveDid(didDocObj: string) {
+      const e = await env();
+      return resolveDIDImpl(String(didDocObj || '').trim(), e.client, e.network);
     },
 
     // Tx methods below

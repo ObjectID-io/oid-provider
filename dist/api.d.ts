@@ -14,6 +14,7 @@ export type ObjectIdApi = {
     document_did_string: (params: {
         id: string;
     }) => string;
+    resolveDid: (didDocObj: string) => Promise<any>;
     add_approver_did: (params: any) => Promise<TxExecResult>;
     add_document_credit: (params: any) => Promise<TxExecResult>;
     add_editors_did: (params: any) => Promise<TxExecResult>;
