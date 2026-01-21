@@ -179,7 +179,7 @@ async function pickCapMatchingDid(client: IotaClient, capIds: string[], did: str
   const identityId = parseDidAliasId(did);
   if (!identityId) throw new Error("Invalid DID: missing identity id");
 
-  const matches: string[] = [];
+  const matches: Array<{ id: string; version: bigint }> = [];
 
   for (const id of capIds) {
     const obj: any = await getObjectRpc(client, id);
@@ -189,17 +189,27 @@ async function pickCapMatchingDid(client: IotaClient, capIds: string[], did: str
     const nested = obj?.content?.fields?.access_token?.fields?.value?.fields?.controller_of; // IOTA Identity (optional path)
     const controllerOf = normalizeHex(String(direct ?? nested ?? ""));
 
-    if (controllerOf && controllerOf === identityId) matches.push(id);
+    if (controllerOf && controllerOf === identityId) {
+      const vRaw = obj?.version;
+      let v = 0n;
+      try {
+        if (typeof vRaw === "string" && vRaw) v = BigInt(vRaw);
+        else if (typeof vRaw === "number") v = BigInt(vRaw);
+      } catch {
+        v = 0n;
+      }
+      matches.push({ id, version: v });
+    }
   }
 
-  if (matches.length === 1) return matches[0];
   if (matches.length === 0) {
     // If user owns caps but none match the provided DID, do not guess.
     throw new Error(`ControllerCap for DID not found in owned objects (did=${did})`);
   }
 
-  // More than one match should not happen; treat as inconsistent state.
-  throw new Error(`Multiple ControllerCaps match DID (did=${did})`);
+  // If multiple caps match, choose deterministically (highest on-chain version, tie-break by objectId).
+  matches.sort((a, b) => (a.version === b.version ? a.id.localeCompare(b.id) : a.version > b.version ? -1 : 1));
+  return matches[0].id;
 }
 
 async function graphqlAllByType(graphqlProvider: string, type: string): Promise<ObjectEdge[]> {
