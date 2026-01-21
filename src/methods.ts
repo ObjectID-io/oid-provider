@@ -21,7 +21,7 @@ export async function add_approver_did(api: ObjectIdApi, params: { controllerCap
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -43,7 +43,7 @@ export async function add_document_credit(api: ObjectIdApi, params: { creditToke
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -65,7 +65,7 @@ export async function add_editors_did(api: ObjectIdApi, params: { controllerCap:
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -94,7 +94,7 @@ export async function alert_message(api: ObjectIdApi, params: { creditToken: any
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -116,7 +116,7 @@ export async function anonymous_message(api: ObjectIdApi, params: { object: any;
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -142,7 +142,7 @@ export async function append_change_log(api: ObjectIdApi, params: { document: an
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -167,7 +167,7 @@ export async function approve_document(api: ObjectIdApi, params: { controllerCap
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -196,7 +196,7 @@ export async function control_message(api: ObjectIdApi, params: { creditToken: a
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -223,7 +223,7 @@ export async function counter_set_value(api: ObjectIdApi, params: { creditToken:
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -249,7 +249,7 @@ export async function counter_stepdown(api: ObjectIdApi, params: { creditToken: 
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -275,7 +275,7 @@ export async function counter_stepup(api: ObjectIdApi, params: { creditToken: an
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -302,7 +302,7 @@ export async function create_component(api: ObjectIdApi, params: { creditToken: 
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -332,7 +332,7 @@ export async function create_counter(api: ObjectIdApi, params: { creditToken: an
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -361,7 +361,7 @@ export async function create_document(api: ObjectIdApi, params: { creditToken: a
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -389,7 +389,7 @@ export async function create_event(api: ObjectIdApi, params: { creditToken: any;
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -422,7 +422,7 @@ export async function create_object(api: ObjectIdApi, params: { creditToken: any
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   if (r.success) r.createdObjectId = r.txEffect?.effects?.created?.[0]?.reference?.objectId;
   return r;
 }
@@ -452,7 +452,7 @@ export async function creator_message(api: ObjectIdApi, params: { creditToken: a
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -478,7 +478,7 @@ export async function delete_component(api: ObjectIdApi, params: { creditToken: 
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -504,7 +504,7 @@ export async function delete_counter(api: ObjectIdApi, params: { creditToken: an
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -526,7 +526,7 @@ export async function delete_document(api: ObjectIdApi, params: { controllerCap:
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -552,7 +552,7 @@ export async function delete_event(api: ObjectIdApi, params: { creditToken: any;
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -574,7 +574,7 @@ export async function delete_object(api: ObjectIdApi, params: { creditToken: any
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -603,7 +603,7 @@ export async function message(api: ObjectIdApi, params: { creditToken: any; cont
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -625,7 +625,7 @@ export async function remove_approver_did(api: ObjectIdApi, params: { controller
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -647,7 +647,7 @@ export async function remove_editors_did(api: ObjectIdApi, params: { controllerC
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -673,7 +673,7 @@ export async function update_agent_did(api: ObjectIdApi, params: { creditToken: 
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -698,7 +698,7 @@ export async function update_document_mutable_metadata(api: ObjectIdApi, params:
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -720,7 +720,7 @@ export async function update_document_owner_did(api: ObjectIdApi, params: { cont
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -742,7 +742,7 @@ export async function update_document_status(api: ObjectIdApi, params: { control
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -764,7 +764,7 @@ export async function update_document_url(api: ObjectIdApi, params: { controller
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -790,7 +790,7 @@ export async function update_document_url_hash(api: ObjectIdApi, params: { contr
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -816,7 +816,7 @@ export async function update_event_mutable_metadata(api: ObjectIdApi, params: { 
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -842,7 +842,7 @@ export async function update_geo_location(api: ObjectIdApi, params: { creditToke
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -869,7 +869,7 @@ export async function update_geolocation(api: ObjectIdApi, params: { creditToken
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -897,7 +897,7 @@ export async function update_object(api: ObjectIdApi, params: { creditToken: any
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -924,7 +924,7 @@ export async function update_object_did(api: ObjectIdApi, params: { creditToken:
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -950,7 +950,7 @@ export async function update_object_mutable_metadata(api: ObjectIdApi, params: {
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -977,7 +977,7 @@ export async function update_op_code(api: ObjectIdApi, params: { creditToken: an
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -1003,7 +1003,7 @@ export async function update_owner_did(api: ObjectIdApi, params: { creditToken: 
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }
 
@@ -1025,6 +1025,6 @@ export async function update_publisher_did(api: ObjectIdApi, params: { controlle
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation });
+  const r = await signAndExecute(env.client, env.keyPair, tx, { network: env.network, gasBudget, useGasStation: api.useGasStation, gasStation: api.gasStation, onExecuted: (api as any).onTxExecuted });
   return r;
 }

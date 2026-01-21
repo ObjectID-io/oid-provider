@@ -116,8 +116,15 @@ export async function signAndExecute(
     gasBudget: number;
     useGasStation?: boolean;
     gasStation?: gasStationCfg;
+    /**
+     * Called when the tx execution attempt completes (success OR failure).
+     * Useful to trigger credit refresh hints deterministically.
+     */
+    onExecuted?: (r: TxExecResult) => void;
   }
 ): Promise<TxExecResult> {
+  let res: TxExecResult = { success: false, error: new Error("Unknown error") };
+
   try {
     if (opts.useGasStation) {
       const gs = opts.gasStation;
@@ -126,7 +133,7 @@ export async function signAndExecute(
       }
 
       try {
-        const txEffect = await attemptWithGasStation(
+        res = await attemptWithGasStation(
           opts.network,
           client,
           keyPair,
@@ -135,18 +142,9 @@ export async function signAndExecute(
           gs.gasStation1URL,
           gs.gasStation1Token
         );
-        const status = txEffect.effects?.status as ExecutionStatus | undefined;
-        const ok = status?.status === "success";
-        return {
-          success: !!ok,
-          txDigest: txEffect.digest,
-          status,
-          error: ok ? undefined : status?.error,
-          txEffect,
-        };
       } catch (e1) {
         if (gs.gasStation2URL && gs.gasStation2Token) {
-          const txEffect = await attemptWithGasStation(
+          res = await attemptWithGasStation(
             opts.network,
             client,
             keyPair,
@@ -155,18 +153,12 @@ export async function signAndExecute(
             gs.gasStation2URL,
             gs.gasStation2Token
           );
-          const status = txEffect.effects?.status as ExecutionStatus | undefined;
-          const ok = status?.status === "success";
-          return {
-            success: !!ok,
-            txDigest: txEffect.digest,
-            status,
-            error: ok ? undefined : status?.error,
-            txEffect,
-          };
+        } else {
+          throw e1;
         }
-        throw e1;
       }
+
+      return res;
     }
 
     // Direct execution (user pays gas)
@@ -183,14 +175,23 @@ export async function signAndExecute(
     const status = txEffect.effects?.status as ExecutionStatus | undefined;
     const ok = status?.status === "success";
 
-    return {
+    res = {
       success: !!ok,
       txDigest: txEffect.digest,
       status,
       error: ok ? undefined : status?.error,
       txEffect,
     };
+
+    return res;
   } catch (error) {
-    return { success: false, error };
+    res = { success: false, error };
+    return res;
+  } finally {
+    try {
+      opts.onExecuted?.(res);
+    } catch {
+      // ignore listener errors
+    }
   }
 }

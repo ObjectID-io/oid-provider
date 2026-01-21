@@ -30,7 +30,7 @@
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
-    "@iota/identity-wasm": "^1.8.0-beta.2"
+    "@iota/identity-wasm": "^1.7.0-beta.1"
   },
   "dependencies": {
     "@iota/iota-sdk": "^1.0.0",
@@ -38,7 +38,7 @@
     "open-location-code-typescript": "^1.5.0"
   },
   "devDependencies": {
-    "@iota/identity-wasm": "^1.8.0-beta.1",
+    "@iota/identity-wasm": "^1.7.0-beta.1",
     "@types/react": "^18.3.5",
     "react": "^18.3.1",
     "typescript": "^5.5.4"

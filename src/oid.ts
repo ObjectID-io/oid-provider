@@ -9,7 +9,7 @@ import {
   type Network as OnchainNetwork,
 } from "./onchain/config";
 import { DEFAULT_CONFIG_PACKAGE_IDS } from "./onchain/defaults";
-import type { Network, ObjectIdProviderConfig, ObjectEdge } from "./types/types";
+import type { Network, ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "./types/types";
 import { getObject as getObjectRpc } from "./utils/getObject";
 
 /**
@@ -179,7 +179,7 @@ async function pickCapMatchingDid(client: IotaClient, capIds: string[], did: str
   const identityId = parseDidAliasId(did);
   if (!identityId) throw new Error("Invalid DID: missing identity id");
 
-  const matches: Array<{ id: string; version: bigint }> = [];
+  const matches: string[] = [];
 
   for (const id of capIds) {
     const obj: any = await getObjectRpc(client, id);
@@ -189,29 +189,17 @@ async function pickCapMatchingDid(client: IotaClient, capIds: string[], did: str
     const nested = obj?.content?.fields?.access_token?.fields?.value?.fields?.controller_of; // IOTA Identity (optional path)
     const controllerOf = normalizeHex(String(direct ?? nested ?? ""));
 
-    if (controllerOf && controllerOf === identityId) {
-      const vRaw = obj?.version;
-      let v = 0n;
-      try {
-        if (typeof vRaw === "string" && vRaw) v = BigInt(vRaw);
-        else if (typeof vRaw === "number") v = BigInt(vRaw);
-      } catch {
-        v = 0n;
-      }
-      matches.push({ id, version: v });
-    }
+    if (controllerOf && controllerOf === identityId) matches.push(id);
   }
 
-  if (matches.length === 1) return matches[0].id;
+  if (matches.length === 1) return matches[0];
   if (matches.length === 0) {
     // If user owns caps but none match the provided DID, do not guess.
     throw new Error(`ControllerCap for DID not found in owned objects (did=${did})`);
   }
 
-  // Some Identity states legitimately yield multiple ControllerCaps for the same DID (e.g. multiple controllers / rotations).
-  // Pick deterministically: highest on-chain version, then lexical objectId as tie-breaker.
-  matches.sort((a, b) => (a.version === b.version ? a.id.localeCompare(b.id) : a.version > b.version ? -1 : 1));
-  return matches[0].id;
+  // More than one match should not happen; treat as inconsistent state.
+  throw new Error(`Multiple ControllerCaps match DID (did=${did})`);
 }
 
 async function graphqlAllByType(graphqlProvider: string, type: string): Promise<ObjectEdge[]> {
@@ -326,6 +314,10 @@ export type Oid = ObjectIdApi & {
     /** Returns remaining credit for the active credit token (best-effort). */
     credit: () => Promise<string | null>;
 
+
+    /** Subscribe to tx execution completion (success OR failure). Useful to refresh credits deterministically. */
+    onCreditChanged: (cb: (r: TxExecResult) => void) => () => void;
+
     /** Gets or sets active config. No arg => current JSON. Object => set JSON. String => load from on-chain objectId. */
     config: (arg?: Record<string, any> | string) => Promise<Record<string, any>>;
 
@@ -348,6 +340,15 @@ export function createOid(): Oid {
   let s: OidSession | null = null;
   let lastNetwork: Network = "testnet";
 
+  // Credit change listeners (hint-based, deterministic on tx execution completion).
+  const creditListeners = new Set<(r: TxExecResult) => void>();
+  const emitCreditChanged = (r: TxExecResult) => {
+    for (const cb of creditListeners) {
+      try { cb(r); } catch { /* ignore listener errors */ }
+    }
+  };
+
+
   const ensure = (): { api: ObjectIdApi; s: OidSession } => {
     if (!api || !s || !s.initialized) notInitialized();
     return { api, s };
@@ -368,6 +369,8 @@ export function createOid(): Oid {
     };
 
     api = createObjectIdApi(merged);
+    // Hook: called after every signAndExecute attempt (success OR failure)
+    (api as any).onTxExecuted = (r: TxExecResult) => emitCreditChanged(r);
 
     const env = await api.env();
     const client = env.client;
@@ -470,6 +473,10 @@ export function createOid(): Oid {
       if (!s.creditTokens.includes(t)) throw new Error("creditToken not owned by the current address");
       s.activeCreditToken = t;
       return s.activeCreditToken;
+    },
+    onCreditChanged(cb: (r: TxExecResult) => void) {
+      creditListeners.add(cb);
+      return () => creditListeners.delete(cb);
     },
     async credit() {
       const { api, s } = ensure();
