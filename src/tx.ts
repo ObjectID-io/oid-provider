@@ -76,7 +76,7 @@ async function attemptWithGasStation(
   gasBudget: number,
   gasStationUrl: string,
   gasStationToken: string
-): Promise<IotaTransactionBlockResponse> {
+): Promise<TxExecResult> {
   const reserved = await reserveGas(gasBudget, gasStationUrl, gasStationToken);
 
   tx.setSender(keyPair.toIotaAddress());
@@ -96,10 +96,21 @@ async function attemptWithGasStation(
     gasStationToken
   );
 
-  return {
+  const txEffect = {
     digest: (effects as any).transactionDigest,
     effects,
   } as IotaTransactionBlockResponse;
+
+  const status = (txEffect.effects as any)?.status as ExecutionStatus | undefined;
+  const ok = status?.status === "success";
+
+  return {
+    success: !!ok,
+    txDigest: txEffect.digest,
+    status,
+    error: ok ? undefined : (status as any)?.error,
+    txEffect,
+  };
 }
 
 /**
