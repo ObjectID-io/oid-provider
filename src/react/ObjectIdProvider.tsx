@@ -7,10 +7,12 @@ import type { ObjectIdApi } from "../api";
 import { createObjectIdApi } from "../api";
 import { signAndExecute } from "../tx";
 
-import type { ObjectIdProviderConfig, gasStationCfg } from "../types";
+import type { ObjectIdProviderConfig, gasStationCfg } from "../types/types";
 import type { ConfigPackageIds, LoadedConfig, Network } from "../onchain/config";
 import { loadPublicConfig, loadConfigJsonByObjectId } from "../onchain/config";
 import { DEFAULT_CONFIG_PACKAGE_IDS } from "../onchain/defaults";
+
+import { getObject } from "../onchain/getObjects";
 
 type Session = {
   network: Network;
@@ -66,9 +68,6 @@ type Ctx = {
 
   /** Loads a config objectId and sets it as active config (and rebuilds API). */
   applyCfgObject: (objectId: string) => Promise<string>;
-
-
-  /** Resolve a DID by Alias object id (DID Document object id). Works also before connect(). */
 };
 
 const C = createContext<Ctx | undefined>(undefined);
@@ -82,7 +81,6 @@ export type ObjectIDProps = {
 function isNonEmptyString(x: any) {
   return typeof x === "string" && x.trim().length > 0;
 }
-
 
 function withTimeout<T>(p: Promise<T>, ms = 15_000, label = "operation"): Promise<T> {
   return Promise.race([
@@ -118,7 +116,6 @@ function writeCachedPublic(network: Network, cfg: { objectId: string; json: Reco
     // ignore quota / privacy mode
   }
 }
-
 
 function mapJsonToProviderConfig(
   base: { network: Network; seed: string; gasBudget: number },
@@ -170,7 +167,9 @@ function mapJsonToProviderConfig(
 }
 
 function hexToU8a(hex: string): Uint8Array {
-  const s = String(hex || "").trim().replace(/^0x/i, "");
+  const s = String(hex || "")
+    .trim()
+    .replace(/^0x/i, "");
   if (!s) throw new Error("Missing seed");
   if (s.length % 2 !== 0) throw new Error("Seed hex length must be even");
   const bytes = new Uint8Array(s.length / 2);
@@ -196,122 +195,134 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
   const [status, setStatus] = useState<Ctx["status"]>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  
-// Load public config at startup (selectedNetwork defaults to testnet).
-// Uses localStorage cache to avoid blocking reloads; refreshes in background.
-useEffect(() => {
-  let cancelled = false;
+  const clientsRef = useRef<Record<string, IotaClient>>({});
 
-  const net = selectedNetwork;
+  const getClientForNetwork = useCallback((net: Network) => {
+    const key = String(net);
+    if (!clientsRef.current[key]) {
+      clientsRef.current[key] = new IotaClient({ url: getFullnodeUrl(net as any) });
+    }
+    return clientsRef.current[key];
+  }, []);
 
-  // 1) Fast path: cached public config
-  const cached = readCachedPublic(net);
-  if (cached) {
-    setPublicConfig({ source: "default", objectId: cached.objectId, json: cached.json } as any);
-    setActiveConfig({ source: "default", objectId: cached.objectId, json: cached.json } as any);
-    setStatus("ready");
-    setError(null);
-  } else {
-    setStatus("loading");
-    setError(null);
-  }
+  // Load public config at startup (selectedNetwork defaults to testnet).
+  // Uses localStorage cache to avoid blocking reloads; refreshes in background.
+  useEffect(() => {
+    let cancelled = false;
 
-  // 2) Refresh from chain (always), but never leave infinite loading
-  (async () => {
-    try {
-      const cfg = await withTimeout(loadPublicConfig(net), 15_000, `loadPublicConfig(${net})`);
-      if (cancelled) return;
+    const net = selectedNetwork;
 
-      setPublicConfig(cfg);
-      setActiveConfig((prev) => {
-        // if active is public OR nothing yet, update active too; if active is object, keep it
-        if (!prev || prev.source === "default") return { ...cfg, source: "default" } as any;
-        return prev;
-      });
-
-      writeCachedPublic(net, { objectId: cfg.objectId, json: cfg.json });
-
-      // If we were loading with no cache, mark ready now.
+    // 1) Fast path: cached public config
+    const cached = readCachedPublic(net);
+    if (cached) {
+      setPublicConfig({ source: "default", objectId: cached.objectId, json: cached.json } as any);
+      setActiveConfig({ source: "default", objectId: cached.objectId, json: cached.json } as any);
       setStatus("ready");
       setError(null);
-    } catch (e: any) {
-      if (cancelled) return;
-
-      // If we already had cache, keep ready and show no blocking error.
-      // If we had no cache and were loading, move to error (not infinite loading).
-      setStatus(cached ? "ready" : "error");
-      setError(e?.message ?? String(e));
+    } else {
+      setStatus("loading");
+      setError(null);
     }
-  })();
 
-  return () => {
-    cancelled = true;
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedNetwork]);
+    // 2) Refresh from chain (always), but never leave infinite loading
+    (async () => {
+      try {
+        const cfg = await withTimeout(loadPublicConfig(net), 15_000, `loadPublicConfig(${net})`);
+        if (cancelled) return;
 
-const buildApi = useCallback((sess: Session, cfgJson: Record<string, any>) => {
+        setPublicConfig(cfg);
+        setActiveConfig((prev) => {
+          // if active is public OR nothing yet, update active too; if active is object, keep it
+          if (!prev || prev.source === "default") return { ...cfg, source: "default" } as any;
+          return prev;
+        });
+
+        writeCachedPublic(net, { objectId: cfg.objectId, json: cfg.json });
+
+        // If we were loading with no cache, mark ready now.
+        setStatus("ready");
+        setError(null);
+      } catch (e: any) {
+        if (cancelled) return;
+
+        // If we already had cache, keep ready and show no blocking error.
+        // If we had no cache and were loading, move to error (not infinite loading).
+        setStatus(cached ? "ready" : "error");
+        setError(e?.message ?? String(e));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNetwork]);
+
+  const buildApi = useCallback((sess: Session, cfgJson: Record<string, any>) => {
     const gasBudget = Number(sess.gasBudget ?? 10_000_000);
-    const providerCfg = mapJsonToProviderConfig(
-      { network: sess.network, seed: sess.seed, gasBudget },
-      cfgJson
-    );
+    const providerCfg = mapJsonToProviderConfig({ network: sess.network, seed: sess.seed, gasBudget }, cfgJson);
     return createObjectIdApi(providerCfg);
   }, []);
 
-  const selectNetwork = useCallback(async (network: Network) => {
-    setStatus("loading");
-    setError(null);
+  const selectNetwork = useCallback(
+    async (network: Network) => {
+      setStatus("loading");
+      setError(null);
 
-    try {
-      const cfg = await loadPublicConfig(network);
-      setSelectedNetwork(network);
-      setPublicConfig(cfg);
-      setActiveConfig({ ...cfg, source: "default" });
+      try {
+        const cfg = await loadPublicConfig(network);
+        setSelectedNetwork(network);
+        setPublicConfig(cfg);
+        setActiveConfig({ ...cfg, source: "default" });
 
-      // If already connected, rebuild API using PUBLIC config for the chosen network
-      if (session) {
-        const nextSession = { ...session, network };
-        setSession(nextSession);
-        const nextApi = buildApi(nextSession, cfg.json);
-        setApi(nextApi);
+        // If already connected, rebuild API using PUBLIC config for the chosen network
+        if (session) {
+          const nextSession = { ...session, network };
+          setSession(nextSession);
+          const nextApi = buildApi(nextSession, cfg.json);
+          setApi(nextApi);
+        }
+
+        setStatus("ready");
+      } catch (e: any) {
+        setStatus("error");
+        setError(e?.message ?? String(e));
+        throw e;
       }
+    },
+    [buildApi, session]
+  );
 
-      setStatus("ready");
-    } catch (e: any) {
-      setStatus("error");
-      setError(e?.message ?? String(e));
-      throw e;
-    }
-  }, [buildApi, session]);
+  const connect = useCallback(
+    async (sess: Session) => {
+      setStatus("loading");
+      setError(null);
 
-  const connect = useCallback(async (sess: Session) => {
-    setStatus("loading");
-    setError(null);
+      try {
+        // Always start from PUBLIC config for chosen network (no auto private cfg)
+        const cfg = await loadPublicConfig(sess.network);
 
-    try {
-      // Always start from PUBLIC config for chosen network (no auto private cfg)
-      const cfg = await loadPublicConfig(sess.network);
+        setSelectedNetwork(sess.network);
+        setSession(sess);
+        setPublicConfig(cfg);
+        setActiveConfig({ ...cfg, source: "default" });
 
-      setSelectedNetwork(sess.network);
-      setSession(sess);
-      setPublicConfig(cfg);
-      setActiveConfig({ ...cfg, source: "default" });
+        const finalApi = buildApi(sess, cfg.json);
+        setApi(finalApi);
 
-      const finalApi = buildApi(sess, cfg.json);
-      setApi(finalApi);
-
-      setStatus("ready");
-    } catch (e: any) {
-      setApi(null);
-      setSession(null);
-      setPublicConfig(null);
-      setActiveConfig(null);
-      setStatus("error");
-      setError(e?.message ?? String(e));
-      throw e;
-    }
-  }, [buildApi]);
+        setStatus("ready");
+      } catch (e: any) {
+        setApi(null);
+        setSession(null);
+        setPublicConfig(null);
+        setActiveConfig(null);
+        setStatus("error");
+        setError(e?.message ?? String(e));
+        throw e;
+      }
+    },
+    [buildApi]
+  );
 
   const disconnect = useCallback(async () => {
     setStatus("loading");
@@ -372,7 +383,7 @@ const buildApi = useCallback((sess: Session, cfgJson: Record<string, any>) => {
     setError(null);
 
     try {
-      const cfg = publicConfig ?? await loadPublicConfig(selectedNetwork);
+      const cfg = publicConfig ?? (await loadPublicConfig(selectedNetwork));
       setPublicConfig(cfg);
       setActiveConfig({ ...cfg, source: "default" });
 
@@ -391,128 +402,156 @@ const buildApi = useCallback((sess: Session, cfgJson: Record<string, any>) => {
     }
   }, [buildApi, publicConfig, selectedNetwork, session]);
 
-  const applyCfg = useCallback(async (json: Record<string, any>) => {
-    if (!session) throw new Error("Not connected");
+  const applyCfg = useCallback(
+    async (json: Record<string, any>) => {
+      if (!session) throw new Error("Not connected");
 
-    const cfgPkg = session.network === "mainnet"
-      ? effectiveConfigPackageIds.mainnet
-      : effectiveConfigPackageIds.testnet;
+      const cfgPkg =
+        session.network === "mainnet" ? effectiveConfigPackageIds.mainnet : effectiveConfigPackageIds.testnet;
 
-    if (!cfgPkg) throw new Error(`Missing config packageId for network=${session.network}`);
+      if (!cfgPkg) throw new Error(`Missing config packageId for network=${session.network}`);
 
-    setStatus("loading");
-    setError(null);
+      setStatus("loading");
+      setError(null);
 
-    try {
-      const s = JSON.stringify(json);
-      const bytes = Array.from(new TextEncoder().encode(s));
+      try {
+        const s = JSON.stringify(json);
+        const bytes = Array.from(new TextEncoder().encode(s));
 
-      const keyPair = Ed25519Keypair.deriveKeypairFromSeed(session.seed);
-      const client = new IotaClient({ url: getFullnodeUrl(session.network as any) });
-      const sender = keyPair.toIotaAddress();
+        const keyPair = Ed25519Keypair.deriveKeypairFromSeed(session.seed);
+        const client = new IotaClient({ url: getFullnodeUrl(session.network as any) });
+        const sender = keyPair.toIotaAddress();
 
-      const tx = new Transaction();
-      tx.moveCall({
-        target: `${cfgPkg}::oid_config::create_user_config`,
-        arguments: [tx.pure.vector("u8", bytes)],
-      });
+        const tx = new Transaction();
+        tx.moveCall({
+          target: `${cfgPkg}::oid_config::create_user_config`,
+          arguments: [tx.pure.vector("u8", bytes)],
+        });
 
-      const gasBudget = Number(session.gasBudget ?? 10_000_000);
-      tx.setGasBudget(gasBudget);
-      tx.setSender(sender);
+        const gasBudget = Number(session.gasBudget ?? 10_000_000);
+        tx.setGasBudget(gasBudget);
+        tx.setSender(sender);
 
-      const useGasStation = !!(json.useGasStation ?? json.use_gas_station);
-      const gasStation = (json.gasStation ?? json.gas_station) as gasStationCfg | undefined;
+        const useGasStation = !!(json.useGasStation ?? json.use_gas_station);
+        const gasStation = (json.gasStation ?? json.gas_station) as gasStationCfg | undefined;
 
-      const r = await signAndExecute(client, keyPair, tx, {
-        network: String(session.network),
-        gasBudget,
-        useGasStation,
-        gasStation,
-      });
+        const r = await signAndExecute(client, keyPair, tx, {
+          network: String(session.network),
+          gasBudget,
+          useGasStation,
+          gasStation,
+        });
 
-      if (!r.success) {
-        throw new Error(`create_user_config failed: ${String(r.error ?? "")}`);
-      }
+        if (!r.success) {
+          throw new Error(`create_user_config failed: ${String(r.error ?? "")}`);
+        }
 
-      const createdId =
-        (r.txEffect as any)?.effects?.created?.[0]?.reference?.objectId ||
-        (r.txEffect as any)?.effects?.created?.[0]?.objectId ||
-        (r as any)?.createdObjectId;
+        const createdId =
+          (r.txEffect as any)?.effects?.created?.[0]?.reference?.objectId ||
+          (r.txEffect as any)?.effects?.created?.[0]?.objectId ||
+          (r as any)?.createdObjectId;
 
-      if (!createdId) {
-        throw new Error("create_user_config succeeded but cannot extract created objectId from tx effects");
-      }
+        if (!createdId) {
+          throw new Error("create_user_config succeeded but cannot extract created objectId from tx effects");
+        }
 
-      // Activate this config and rebuild api
-      setActiveConfig({ source: "object", objectId: String(createdId), json } as any);
-      const nextApi = buildApi(session, json);
-      setApi(nextApi);
-
-      setStatus("ready");
-      return String(createdId);
-    } catch (e: any) {
-      setStatus("error");
-      setError(e?.message ?? String(e));
-      throw e;
-    }
-  }, [buildApi, effectiveConfigPackageIds, session]);
-
-  const applyCfgObject = useCallback(async (objectId: string) => {
-    setStatus("loading");
-    setError(null);
-
-    try {
-      const net = session?.network ?? selectedNetwork;
-      const json = await loadConfigJsonByObjectId(net, objectId);
-
-      setActiveConfig({ source: "object", objectId: String(objectId), json } as any);
-
-      if (session) {
+        // Activate this config and rebuild api
+        setActiveConfig({ source: "object", objectId: String(createdId), json } as any);
         const nextApi = buildApi(session, json);
         setApi(nextApi);
+
+        setStatus("ready");
+        return String(createdId);
+      } catch (e: any) {
+        setStatus("error");
+        setError(e?.message ?? String(e));
+        throw e;
+      }
+    },
+    [buildApi, effectiveConfigPackageIds, session]
+  );
+
+  const applyCfgObject = useCallback(
+    async (objectId: string) => {
+      setStatus("loading");
+      setError(null);
+
+      try {
+        const net = session?.network ?? selectedNetwork;
+        const json = await loadConfigJsonByObjectId(net, objectId);
+
+        setActiveConfig({ source: "object", objectId: String(objectId), json } as any);
+
+        if (session) {
+          const nextApi = buildApi(session, json);
+          setApi(nextApi);
+        }
+
+        setStatus("ready");
+        return String(objectId);
+      } catch (e: any) {
+        setStatus("error");
+        setError(e?.message ?? String(e));
+        throw e;
+      }
+    },
+    [buildApi, selectedNetwork, session]
+  );
+
+  const getCfgJsonForNet = useCallback(
+    async (net: Network): Promise<Record<string, any>> => {
+      // Se connesso e la rete combacia, usa active/public già in memoria
+      if (session?.network === net) {
+        const j = (activeConfig?.json as any) ?? (publicConfig?.json as any);
+        if (j) return j;
       }
 
-      setStatus("ready");
-      return String(objectId);
-    } catch (e: any) {
-      setStatus("error");
-      setError(e?.message ?? String(e));
-      throw e;
-    }
-  }, [buildApi, selectedNetwork, session]);
+      // Se non connesso (o rete diversa), usa cache localStorage per quella rete
+      const cached = readCachedPublic(net);
+      if (cached?.json) return cached.json;
 
-  const value = useMemo<Ctx>(() => ({
-    api,
-    session,
-    publicConfig,
-    activeConfig,
-    status,
-    error,
-    selectedNetwork,
-    selectNetwork,
-    connect,
-    disconnect,
-    refreshPublicConfig,
-    usePublicConfig,
-    applyCfg,
-    applyCfgObject,
-  }), [
-    api,
-    session,
-    publicConfig,
-    activeConfig,
-    status,
-    error,
-    selectedNetwork,
-    selectNetwork,
-    connect,
-    disconnect,
-    refreshPublicConfig,
-    usePublicConfig,
-    applyCfg,
-    applyCfgObject,
-  ]);
+      // Fallback: carica on-chain e aggiorna cache
+      const cfg = await loadPublicConfig(net);
+      writeCachedPublic(net, { objectId: cfg.objectId, json: cfg.json });
+      return cfg.json as any;
+    },
+    [activeConfig, publicConfig, session]
+  );
+
+  const value = useMemo<Ctx>(
+    () => ({
+      api,
+      session,
+      publicConfig,
+      activeConfig,
+      status,
+      error,
+      selectedNetwork,
+      selectNetwork,
+      connect,
+      disconnect,
+      refreshPublicConfig,
+      usePublicConfig,
+      applyCfg,
+      applyCfgObject,
+    }),
+    [
+      api,
+      session,
+      publicConfig,
+      activeConfig,
+      status,
+      error,
+      selectedNetwork,
+      selectNetwork,
+      connect,
+      disconnect,
+      refreshPublicConfig,
+      usePublicConfig,
+      applyCfg,
+      applyCfgObject,
+    ]
+  );
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

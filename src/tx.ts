@@ -6,7 +6,7 @@ import type {
 } from "@iota/iota-sdk/client";
 import type { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
 import type { Transaction, ObjectRef } from "@iota/iota-sdk/transactions";
-import type { TxExecResult, gasStationCfg } from "./types";
+import type { TxExecResult, gasStationCfg } from "./types/types";
 
 /**
  * Browser-safe Uint8Array -> base64 encoding (no Buffer).
@@ -41,7 +41,11 @@ async function postJson<T>(url: string, token: string | undefined, body: any): P
   return data as T;
 }
 
-async function reserveGas(gasBudget: number, gasStationUrl: string, gasStationToken: string): Promise<ReserveGasResult> {
+async function reserveGas(
+  gasBudget: number,
+  gasStationUrl: string,
+  gasStationToken: string
+): Promise<ReserveGasResult> {
   const resp = await postJson<any>(`${gasStationUrl}/v1/reserve_gas`, gasStationToken, {
     gas_budget: gasBudget,
     reserve_duration_secs: 10,
@@ -84,7 +88,13 @@ async function attemptWithGasStation(
   const signedTx = await keyPair.signTransaction(unsignedTxBytes);
   const userSig = (signedTx as any).signature;
 
-  const effects = await sponsorSignAndSubmit(reserved.reservation_id, unsignedTxBytes, userSig, gasStationUrl, gasStationToken);
+  const effects = await sponsorSignAndSubmit(
+    reserved.reservation_id,
+    unsignedTxBytes,
+    userSig,
+    gasStationUrl,
+    gasStationToken
+  );
 
   return {
     digest: (effects as any).transactionDigest,

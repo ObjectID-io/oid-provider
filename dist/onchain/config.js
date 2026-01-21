@@ -94,4 +94,5 @@ export async function loadEffectiveConfig(network, configPkgs, ownerAddress) {
     const json = await getObjectJson(client, defaultId);
     return { source: "default", objectId: defaultId, json };
 }
+export const dlvcProxyUrl = "https://api.objectid.io/api/dlvc-proxy";
 //# sourceMappingURL=config.js.map

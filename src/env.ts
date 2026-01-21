@@ -1,6 +1,6 @@
 import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
 import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
-import type { ObjectIdProviderConfig } from "./types";
+import type { ObjectIdProviderConfig } from "./types/types";
 import { searchObjectsByType } from "./graphql";
 
 export type ResolvedEnv = {
@@ -28,7 +28,6 @@ function mustNonEmpty(name: string, value: any, ctx?: any): string {
   const keys = ctx && typeof ctx === "object" ? Object.keys(ctx).join(",") : "";
   throw new Error(`Missing required config field: ${name}${keys ? ` (available keys: ${keys})` : ""}`);
 }
-
 
 function mustArray(name: string, v: any): string[] {
   if (!Array.isArray(v) || v.length === 0) throw new Error(`Missing required config array: ${name}`);

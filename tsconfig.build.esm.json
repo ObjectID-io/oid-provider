@@ -12,5 +12,5 @@
     "sourceMap": true,
     "noEmitOnError": true
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
 }

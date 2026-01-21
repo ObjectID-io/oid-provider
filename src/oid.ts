@@ -1,5 +1,5 @@
 import { getFullnodeUrl, IotaClient, type IotaObjectData } from "@iota/iota-sdk/client";
-import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
+import { getObject as getObjectOnchain } from "./onchain/getObjects";
 
 import { createObjectIdApi, type ObjectIdApi } from "./api";
 import {
@@ -9,8 +9,8 @@ import {
   type Network as OnchainNetwork,
 } from "./onchain/config";
 import { DEFAULT_CONFIG_PACKAGE_IDS } from "./onchain/defaults";
-import type { Network, ObjectIdProviderConfig, ObjectEdge } from "./types";
-import { getObject as getObjectRpc } from "./getObject";
+import type { Network, ObjectIdProviderConfig, ObjectEdge } from "./types/types";
+import { getObject as getObjectRpc } from "./utils/getObject";
 
 /**
  * Session state exposed by the high-level OID wrapper.
@@ -334,6 +334,7 @@ export type Oid = ObjectIdApi & {
 export function createOid(): Oid {
   let api: ObjectIdApi | null = null;
   let s: OidSession | null = null;
+  let lastNetwork: Network = "testnet";
 
   const ensure = (): { api: ObjectIdApi; s: OidSession } => {
     if (!api || !s || !s.initialized) notInitialized();
@@ -418,6 +419,8 @@ export function createOid(): Oid {
     if (!did) throw new Error("DID is required.");
     if (!seed) throw new Error("Seed is required.");
     if (!network) throw new Error("Network is required.");
+
+    lastNetwork = network;
 
     const publicCfg = await loadPublicConfig(network as unknown as OnchainNetwork);
     const cfgJson = publicCfg.json ?? {};

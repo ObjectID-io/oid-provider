@@ -1,8 +1,7 @@
 import { resolveEnv } from "./env";
 import { searchObjectsByType } from "./graphql";
-import { getObject } from "./getObject";
+import { getObject } from "./utils/getObject";
 import * as methods from "./methods";
-import { resolveDID as resolveDIDImpl } from "./onchain/identity";
 export function createObjectIdApi(cfg) {
     let _envPromise = null;
     const gasBudget = cfg.gasBudget ?? 10_000_000;
@@ -30,10 +29,6 @@ export function createObjectIdApi(cfg) {
             const raw = String(id || "").trim();
             const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
             return "did:iota:0x" + hex.toLowerCase();
-        },
-        async resolveDid(didDocObj) {
-            const e = await env();
-            return resolveDIDImpl(String(didDocObj || '').trim(), e.client, e.network);
         },
         // Tx methods below
         add_approver_did: (params) => methods.add_approver_did(apiRef, params),

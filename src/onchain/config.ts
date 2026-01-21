@@ -93,16 +93,13 @@ export async function findUserConfigObjectId(
  * Loads the public/shared default config for a given network (pinned object id).
  * This does NOT attempt to load any user-owned config.
  */
-export async function loadPublicConfig(
-  network: Network
-): Promise<LoadedConfig> {
+export async function loadPublicConfig(network: Network): Promise<LoadedConfig> {
   const client = new IotaClient({ url: getFullnodeUrl(network as any) });
   const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[network];
   if (!defaultId) throw new Error(`Missing DEFAULT_SHARED_CONFIG_OBJECT_ID for network=${network}`);
   const json = await getObjectJson(client, defaultId);
   return { source: "default", objectId: String(defaultId), json };
 }
-
 
 export async function loadEffectiveConfig(
   network: Network,
@@ -128,3 +125,5 @@ export async function loadEffectiveConfig(
   const json = await getObjectJson(client, defaultId);
   return { source: "default", objectId: defaultId, json };
 }
+
+export const dlvcProxyUrl = "https://api.objectid.io/api/dlvc-proxy";

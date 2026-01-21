@@ -1,6 +1,6 @@
 import { IotaClient } from "@iota/iota-sdk/client";
 import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
-import type { ObjectIdProviderConfig } from "./types";
+import type { ObjectIdProviderConfig } from "./types/types";
 export type ResolvedEnv = {
     client: IotaClient;
     keyPair: Ed25519Keypair;

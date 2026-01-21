@@ -1,5 +1,5 @@
 import { jsx as _jsx } from "react/jsx-runtime";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from "react";
 import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
 import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
 import { Transaction } from "@iota/iota-sdk/transactions";
@@ -80,7 +80,9 @@ function mapJsonToProviderConfig(base, j) {
     };
 }
 function hexToU8a(hex) {
-    const s = String(hex || "").trim().replace(/^0x/i, "");
+    const s = String(hex || "")
+        .trim()
+        .replace(/^0x/i, "");
     if (!s)
         throw new Error("Missing seed");
     if (s.length % 2 !== 0)
@@ -104,6 +106,14 @@ export function ObjectID({ configPackageIds, children }) {
     const [api, setApi] = useState(null);
     const [status, setStatus] = useState("idle");
     const [error, setError] = useState(null);
+    const clientsRef = useRef({});
+    const getClientForNetwork = useCallback((net) => {
+        const key = String(net);
+        if (!clientsRef.current[key]) {
+            clientsRef.current[key] = new IotaClient({ url: getFullnodeUrl(net) });
+        }
+        return clientsRef.current[key];
+    }, []);
     // Load public config at startup (selectedNetwork defaults to testnet).
     // Uses localStorage cache to avoid blocking reloads; refreshes in background.
     useEffect(() => {
@@ -259,7 +269,7 @@ export function ObjectID({ configPackageIds, children }) {
         setStatus("loading");
         setError(null);
         try {
-            const cfg = publicConfig ?? await loadPublicConfig(selectedNetwork);
+            const cfg = publicConfig ?? (await loadPublicConfig(selectedNetwork));
             setPublicConfig(cfg);
             setActiveConfig({ ...cfg, source: "default" });
             if (session) {
@@ -280,9 +290,7 @@ export function ObjectID({ configPackageIds, children }) {
     const applyCfg = useCallback(async (json) => {
         if (!session)
             throw new Error("Not connected");
-        const cfgPkg = session.network === "mainnet"
-            ? effectiveConfigPackageIds.mainnet
-            : effectiveConfigPackageIds.testnet;
+        const cfgPkg = session.network === "mainnet" ? effectiveConfigPackageIds.mainnet : effectiveConfigPackageIds.testnet;
         if (!cfgPkg)
             throw new Error(`Missing config packageId for network=${session.network}`);
         setStatus("loading");
@@ -351,6 +359,22 @@ export function ObjectID({ configPackageIds, children }) {
             throw e;
         }
     }, [buildApi, selectedNetwork, session]);
+    const getCfgJsonForNet = useCallback(async (net) => {
+        // Se connesso e la rete combacia, usa active/public già in memoria
+        if (session?.network === net) {
+            const j = activeConfig?.json ?? publicConfig?.json;
+            if (j)
+                return j;
+        }
+        // Se non connesso (o rete diversa), usa cache localStorage per quella rete
+        const cached = readCachedPublic(net);
+        if (cached?.json)
+            return cached.json;
+        // Fallback: carica on-chain e aggiorna cache
+        const cfg = await loadPublicConfig(net);
+        writeCachedPublic(net, { objectId: cfg.objectId, json: cfg.json });
+        return cfg.json;
+    }, [activeConfig, publicConfig, session]);
     const value = useMemo(() => ({
         api,
         session,

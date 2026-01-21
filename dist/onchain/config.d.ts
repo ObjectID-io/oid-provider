@@ -34,4 +34,5 @@ export declare function findUserConfigObjectId(client: IotaClient, owner: string
  */
 export declare function loadPublicConfig(network: Network): Promise<LoadedConfig>;
 export declare function loadEffectiveConfig(network: Network, configPkgs: ConfigPackageIds, ownerAddress: string): Promise<LoadedConfig>;
+export declare const dlvcProxyUrl = "https://api.objectid.io/api/dlvc-proxy";
 //# sourceMappingURL=config.d.ts.map

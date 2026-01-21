@@ -1,6 +1,10 @@
-import type { ObjectEdge } from "./types";
+import type { ObjectEdge } from "./types/types";
 
-export async function searchObjectsByType(type: string, after: string | null, graphqlProvider: string): Promise<ObjectEdge[]> {
+export async function searchObjectsByType(
+  type: string,
+  after: string | null,
+  graphqlProvider: string
+): Promise<ObjectEdge[]> {
   const query = `
   query ($type: String!, $after: String) {
     objects(filter: { type: $type }, after: $after) {
