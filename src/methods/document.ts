@@ -2,6 +2,7 @@ import { Transaction } from "@iota/iota-sdk/transactions";
 import { signAndExecute } from "../tx";
 import { asJsonString } from "../env";
 import type { ObjectIdApi } from "../api";
+import { ensureTrailingSlashForOriginOnly } from "../utils/url";
 
 export async function add_approver_did(api: ObjectIdApi, params: { controllerCap: any; document: any; new_approver_did: any }) {
   const { controllerCap, document, new_approver_did } = params;
@@ -125,6 +126,8 @@ export async function create_document(api: ObjectIdApi, params: { creditToken: a
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
+  const safeDocumentUrl = ensureTrailingSlashForOriginOnly(document_url);
+
   const tx = new Transaction();
   const moveFunction = env.documentPackageID + "::oid_document::create_document";
 
@@ -133,7 +136,7 @@ export async function create_document(api: ObjectIdApi, params: { creditToken: a
       tx.object(creditToken),
       tx.object(env.policy),
       tx.object(OIDcontrollerCap),
-      tx.pure.string(document_url),
+      tx.pure.string(safeDocumentUrl),
       tx.pure.string(description),
       tx.pure.string(asJsonString(immutable_metadata)),
       tx.pure.string(asJsonString(mutable_metadata)),
@@ -289,12 +292,14 @@ export async function update_document_url(api: ObjectIdApi, params: { controller
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
+  const safeUrl = ensureTrailingSlashForOriginOnly(new_document_url);
+
   const tx = new Transaction();
   const moveFunction = env.documentPackageID + "::oid_document::update_document_url";
 
   tx.moveCall({
     arguments: [
-      tx.object(controllerCap), tx.object(document), tx.pure.string(new_document_url), tx.object("0x6")
+      tx.object(controllerCap), tx.object(document), tx.pure.string(safeUrl), tx.object("0x6")
     ],
     target: moveFunction,
   });
@@ -311,6 +316,8 @@ export async function update_document_url_hash(api: ObjectIdApi, params: { contr
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
+  const safeUrl = ensureTrailingSlashForOriginOnly(new_document_url);
+
   const tx = new Transaction();
   const moveFunction = env.documentPackageID + "::oid_document::update_document_url_hash";
 
@@ -319,7 +326,7 @@ export async function update_document_url_hash(api: ObjectIdApi, params: { contr
       tx.object(controllerCap),
       tx.object(document),
       tx.pure.string(new_hash),
-      tx.pure.string(new_document_url),
+      tx.pure.string(safeUrl),
       tx.object("0x6"),
     ],
     target: moveFunction,

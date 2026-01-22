@@ -1,11 +1,17 @@
 import { Transaction } from "@iota/iota-sdk/transactions";
 import { signAndExecute } from "../tx";
 import type { ObjectIdApi } from "../api";
+import { ensureTrailingSlashForOriginOnly } from "../utils/url";
 
 export async function create_object(api: ObjectIdApi, params: { creditToken: any; OIDcontrollerCap: any; object_type: any; product_url: any; product_img_url: any; description: any; op_code: any; immutable_metadata: any; mutable_metadata: any; geo_location: any }) {
   const { creditToken, OIDcontrollerCap, object_type, product_url, product_img_url, description, op_code, immutable_metadata, mutable_metadata, geo_location } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
+
+  // IMPORTANT: Move checks prefixes using std::string::substring with the on-chain linked_domain length.
+  // If the client passes a bare URL origin like "https://example.com" while linked_domain is stored as
+  // "https://example.com/", substring will abort with out-of-bounds.
+  const safeProductUrl = ensureTrailingSlashForOriginOnly(product_url);
 
   const tx = new Transaction();
   const moveFunction = env.packageID + "::oid_object::create_object";
@@ -16,7 +22,7 @@ export async function create_object(api: ObjectIdApi, params: { creditToken: any
       tx.object(env.policy),
       tx.object(OIDcontrollerCap),
       tx.pure.string(object_type),
-      tx.pure.string(product_url),
+      tx.pure.string(safeProductUrl),
       tx.pure.string(product_img_url),
       tx.pure.string(description),
       tx.pure.string(op_code),
