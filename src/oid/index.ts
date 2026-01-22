@@ -1,16 +1,19 @@
 import { getFullnodeUrl, IotaClient, type IotaObjectData } from "@iota/iota-sdk/client";
-import { getObject as getObjectOnchain } from "./onchain/getObjects";
 
-import { createObjectIdApi, type ObjectIdApi } from "./api";
+import { createObjectIdApi, type ObjectIdApi } from "../api";
 import {
   loadPublicConfig,
   loadConfigJsonByObjectId,
   type LoadedConfig,
   type Network as OnchainNetwork,
-} from "./onchain/config";
-import { DEFAULT_CONFIG_PACKAGE_IDS } from "./onchain/defaults";
-import type { Network, ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "./types/types";
-import { getObject as getObjectRpc } from "./utils/getObject";
+} from "../onchain/config";
+import type { Network, ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "../types/types";
+import { getObject as getObjectRpc } from "../utils/getObject";
+
+import { normalizeHex, pickCapMatchingDid } from "./caps";
+import { extractBalance } from "./credit";
+import { graphqlAllByType, graphqlAllByTypeAndOwner } from "./graphql";
+import { getOwnedObjectIdsByType } from "./ownedObjects";
 
 /**
  * Session state exposed by the high-level OID wrapper.
@@ -50,260 +53,6 @@ function notInitialized(): never {
   throw new Error("not initialized");
 }
 
-function normalizeHex(s: string): string {
-  const t = (s ?? "").trim();
-  if (!t) return t;
-  return t.startsWith("0x") ? t.toLowerCase() : ("0x" + t).toLowerCase();
-}
-
-function parseDidAliasId(did: string): string | null {
-  const s = (did ?? "").trim();
-  if (!s) return null;
-  // did:iota:testnet:0xabc...  OR did:iota:0xabc...
-  const parts = s.split(":");
-  const last = parts[parts.length - 1];
-  if (!last) return null;
-  if (last.startsWith("0x") || /^[0-9a-fA-F]+$/.test(last)) return normalizeHex(last);
-  return null;
-}
-
-function deepContains(value: unknown, needle: string, maxDepth = 6): boolean {
-  if (!needle) return false;
-  const n = needle.toLowerCase();
-
-  const seen = new Set<any>();
-  const stack: Array<{ v: any; d: number }> = [{ v: value as any, d: 0 }];
-
-  while (stack.length) {
-    const { v, d } = stack.pop()!;
-    if (v == null) continue;
-    if (d > maxDepth) continue;
-
-    if (typeof v === "string") {
-      if (v.toLowerCase() === n) return true;
-      if (v.toLowerCase().includes(n)) return true;
-      continue;
-    }
-
-    if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") continue;
-
-    if (seen.has(v)) continue;
-    if (typeof v === "object") {
-      seen.add(v);
-      if (Array.isArray(v)) {
-        for (const x of v) stack.push({ v: x, d: d + 1 });
-      } else {
-        for (const k of Object.keys(v)) {
-          stack.push({ v: (v as any)[k], d: d + 1 });
-        }
-      }
-    }
-  }
-
-  return false;
-}
-
-async function getOwnedObjectIdsByType(client: IotaClient, owner: string, targetType: string): Promise<string[]> {
-  const found: string[] = [];
-  let cursor: string | null = null;
-
-  for (;;) {
-    const page = await client.getOwnedObjects({
-      owner,
-      cursor,
-      options: { showType: true, showContent: true },
-    });
-
-    const items = page?.data ?? [];
-    for (const item of items) {
-      const objId = item.data?.objectId;
-      if (!objId) continue;
-
-      const directType = item.data?.type;
-      if (directType && directType === targetType) {
-        found.push(objId);
-        continue;
-      }
-
-      const content = item.data?.content as any;
-      const contentType = content?.type as string | undefined;
-      if (contentType && contentType === targetType) {
-        found.push(objId);
-      }
-    }
-
-    if (!page?.hasNextPage || !page.nextCursor) break;
-    cursor = page.nextCursor;
-  }
-
-  return found;
-}
-
-function extractBalance(obj: IotaObjectData | null): string | null {
-  if (!obj) return null;
-  const fields = (obj as any)?.content?.fields;
-  if (!fields) return null;
-
-  // common shapes:
-  // balance: "123"
-  // balance: { fields: { value: "123" } }
-  const b = (fields as any).balance;
-  if (typeof b === "string") return b;
-  if (typeof b === "number") return String(b);
-  if (b && typeof b === "object") {
-    const v = (b as any).fields?.value ?? (b as any).value;
-    if (typeof v === "string") return v;
-    if (typeof v === "number") return String(v);
-  }
-
-  // fallback: deep search for first numeric-like string
-  const stack: any[] = [fields];
-  const seen = new Set<any>();
-  while (stack.length) {
-    const v = stack.pop();
-    if (v == null) continue;
-    if (typeof v === "string" && /^[0-9]+$/.test(v)) return v;
-    if (typeof v !== "object") continue;
-    if (seen.has(v)) continue;
-    seen.add(v);
-    if (Array.isArray(v)) stack.push(...v);
-    else for (const k of Object.keys(v)) stack.push((v as any)[k]);
-  }
-
-  return null;
-}
-
-async function pickCapMatchingDid(client: IotaClient, capIds: string[], did: string): Promise<string | undefined> {
-  if (!capIds.length) return undefined;
-
-  const identityId = parseDidAliasId(did);
-  if (!identityId) throw new Error("Invalid DID: missing identity id");
-
-  const matches: Array<{ id: string; version: bigint }> = [];
-
-  for (const id of capIds) {
-    const obj: any = await getObjectRpc(client, id);
-
-    // Deterministic link: ControllerCap.fields.controller_of == DID identity id (aliasId)
-    const direct = obj?.content?.fields?.controller_of;
-    const nested = obj?.content?.fields?.access_token?.fields?.value?.fields?.controller_of; // IOTA Identity (optional path)
-    const controllerOf = normalizeHex(String(direct ?? nested ?? ""));
-
-    if (controllerOf && controllerOf === identityId) {
-      const vRaw = obj?.version;
-      let v = 0n;
-      try {
-        if (typeof vRaw === "string" && vRaw) v = BigInt(vRaw);
-        else if (typeof vRaw === "number") v = BigInt(vRaw);
-      } catch {
-        v = 0n;
-      }
-      matches.push({ id, version: v });
-    }
-  }
-
-  if (matches.length === 0) {
-    // If user owns caps but none match the provided DID, do not guess.
-    throw new Error(`ControllerCap for DID not found in owned objects (did=${did})`);
-  }
-
-  // If multiple caps match, choose deterministically (highest on-chain version, tie-break by objectId).
-  matches.sort((a, b) => (a.version === b.version ? a.id.localeCompare(b.id) : a.version > b.version ? -1 : 1));
-  return matches[0].id;
-}
-
-async function graphqlAllByType(graphqlProvider: string, type: string): Promise<ObjectEdge[]> {
-  const query = `
-    query ($type: String!, $after: String) {
-      objects(filter: { type: $type }, first: 50, after: $after) {
-        edges {
-          cursor
-          node {
-            address
-            asMoveObject {
-              contents { type { repr } data }
-            }
-          }
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  `;
-
-  const edges: ObjectEdge[] = [];
-  let after: string | null = null;
-
-  for (;;) {
-    const resp = await fetch(graphqlProvider, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query, variables: { type, after } }),
-    });
-
-    const json = (await resp.json().catch(() => null)) as any;
-    if (!resp.ok) throw Object.assign(new Error(`GraphQL HTTP ${resp.status}`), { status: resp.status, json });
-    if (json?.errors) throw Object.assign(new Error("GraphQL errors"), { errors: json.errors });
-
-    const page = json?.data?.objects;
-    const pageEdges = page?.edges as ObjectEdge[] | undefined;
-    if (pageEdges?.length) edges.push(...pageEdges);
-
-    const hasNext = !!page?.pageInfo?.hasNextPage;
-    const endCursor = (page?.pageInfo?.endCursor ?? null) as string | null;
-
-    if (!hasNext || !endCursor) break;
-    after = endCursor;
-  }
-
-  return edges;
-}
-
-async function graphqlAllByTypeAndOwner(graphqlProvider: string, type: string, owner: string): Promise<ObjectEdge[]> {
-  const query = `
-    query ($type: String!, $after: String, $owner: IotaAddress) {
-      objects(filter: { type: $type, owner: $owner }, first: 50, after: $after) {
-        edges {
-          cursor
-          node {
-            address
-            asMoveObject {
-              contents { type { repr } data }
-            }
-          }
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  `;
-
-  const edges: ObjectEdge[] = [];
-  let after: string | null = null;
-
-  for (;;) {
-    const resp = await fetch(graphqlProvider, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query, variables: { type, after, owner } }),
-    });
-
-    const json = (await resp.json().catch(() => null)) as any;
-    if (!resp.ok) throw Object.assign(new Error(`GraphQL HTTP ${resp.status}`), { status: resp.status, json });
-    if (json?.errors) throw Object.assign(new Error("GraphQL errors"), { errors: json.errors });
-
-    const page = json?.data?.objects;
-    const pageEdges = page?.edges as ObjectEdge[] | undefined;
-    if (pageEdges?.length) edges.push(...pageEdges);
-
-    const hasNext = !!page?.pageInfo?.hasNextPage;
-    const endCursor = (page?.pageInfo?.endCursor ?? null) as string | null;
-
-    if (!hasNext || !endCursor) break;
-    after = endCursor;
-  }
-
-  return edges;
-}
-
 export type Oid = ObjectIdApi & {
   /** Initializes the provider. Required before calling tx methods. */
   config: (did: string, seed: string, network: Network) => Promise<void>;
@@ -323,7 +72,6 @@ export type Oid = ObjectIdApi & {
 
     /** Returns remaining credit for the active credit token (best-effort). */
     credit: () => Promise<string | null>;
-
 
     /** Subscribe to tx execution completion (success OR failure). Useful to refresh credits deterministically. */
     onCreditChanged: (cb: (r: TxExecResult) => void) => () => void;
@@ -348,16 +96,18 @@ export type Oid = ObjectIdApi & {
 export function createOid(): Oid {
   let api: ObjectIdApi | null = null;
   let s: OidSession | null = null;
-  let lastNetwork: Network = "testnet";
 
   // Credit change listeners (hint-based, deterministic on tx execution completion).
   const creditListeners = new Set<(r: TxExecResult) => void>();
   const emitCreditChanged = (r: TxExecResult) => {
     for (const cb of creditListeners) {
-      try { cb(r); } catch { /* ignore listener errors */ }
+      try {
+        cb(r);
+      } catch {
+        /* ignore listener errors */
+      }
     }
   };
-
 
   const ensure = (): { api: ObjectIdApi; s: OidSession } => {
     if (!api || !s || !s.initialized) notInitialized();
@@ -444,8 +194,6 @@ export function createOid(): Oid {
     if (!did) throw new Error("DID is required.");
     if (!seed) throw new Error("Seed is required.");
     if (!network) throw new Error("Network is required.");
-
-    lastNetwork = network;
 
     const publicCfg = await loadPublicConfig(network as unknown as OnchainNetwork);
     const cfgJson = publicCfg.json ?? {};
