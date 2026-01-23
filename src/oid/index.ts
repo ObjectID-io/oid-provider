@@ -1,12 +1,8 @@
+// src/oid/index.ts
 import { getFullnodeUrl, IotaClient, type IotaObjectData } from "@iota/iota-sdk/client";
 
 import { createObjectIdApi, type ObjectIdApi } from "../api";
-import {
-  loadPublicConfig,
-  loadConfigJsonByObjectId,
-  type LoadedConfig,
-  type Network as OnchainNetwork,
-} from "../onchain/config";
+import { loadPublicConfig, loadConfigJsonByObjectId, type LoadedConfig } from "../onchain/config";
 import type { Network, ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "../types/types";
 import { getObject as getObjectRpc } from "../utils/getObject";
 
@@ -55,7 +51,11 @@ function notInitialized(): never {
 
 export type Oid = ObjectIdApi & {
   /** Initializes the provider. Required before calling tx methods. */
-  config: (did: string, seed: string, network: Network) => Promise<void>;
+  config: {
+    (did: string, seed: string, network: Network): Promise<void>;
+    (network?: Network): Promise<Record<string, any>>;
+  };
+  publicConfig: (network?: Network) => Promise<Record<string, any>>;
   configParams: (p: OidConfigParams) => Promise<void>;
 
   /** Current session snapshot (read-only object, but may contain callable helpers) */
@@ -120,7 +120,7 @@ export function createOid(): Oid {
     network: Network,
     cfgJson: Record<string, any>,
     configObjectId?: string,
-    publicConfig?: LoadedConfig
+    publicConfig?: LoadedConfig,
   ) => {
     const merged: ObjectIdProviderConfig = {
       ...(cfgJson as any),
@@ -195,13 +195,31 @@ export function createOid(): Oid {
     if (!seed) throw new Error("Seed is required.");
     if (!network) throw new Error("Network is required.");
 
-    const publicCfg = await loadPublicConfig(network as unknown as OnchainNetwork);
+    const publicCfg = await loadPublicConfig(network);
     const cfgJson = publicCfg.json ?? {};
     await applyConfigJson(seed, did, network, cfgJson, undefined, publicCfg);
   };
 
-  const config = async (did: string, seed: string, network: Network) => {
-    await configParams({ did, seed, network });
+  const config = async (...args: any[]): Promise<any> => {
+    // Overload:
+    // - config(did, seed, network) -> initialize session (tx signing)
+    // - config(network?)          -> return PUBLIC config JSON (no session required)
+    if (args.length === 3) {
+      const [did, seed, network] = args as [string, string, Network];
+      await configParams({ did, seed, network });
+      return;
+    }
+
+    const [network] = args as [Network?];
+    const net: Network = (network ?? "testnet") as Network;
+    const cfg = await loadPublicConfig(net);
+    return cfg.json;
+  };
+
+  // Alias (more explicit): read public config without session
+  const publicConfig = async (network: Network = "testnet") => {
+    const cfg = await loadPublicConfig(network);
+    return cfg.json;
   };
 
   const sessionObj: Oid["session"] = {
@@ -274,6 +292,7 @@ export function createOid(): Oid {
 
   const base: any = {
     config,
+    publicConfig,
     configParams,
     session: sessionObj,
 
@@ -285,14 +304,14 @@ export function createOid(): Oid {
     },
 
     async getObjectsByType(type: string, network: Network) {
-      const publicCfg = await loadPublicConfig(network as unknown as OnchainNetwork);
+      const publicCfg = await loadPublicConfig(network);
       const graphqlProvider = String((publicCfg.json as any)?.graphqlProvider ?? "").trim();
       if (!graphqlProvider) throw new Error("graphqlProvider not found in public config");
       return await graphqlAllByType(graphqlProvider, type);
     },
 
     async getObjectsByTypeAndOwner(type: string, owner: string, network: Network) {
-      const publicCfg = await loadPublicConfig(network as unknown as OnchainNetwork);
+      const publicCfg = await loadPublicConfig(network);
       const graphqlProvider = String((publicCfg.json as any)?.graphqlProvider ?? "").trim();
       if (!graphqlProvider) throw new Error("graphqlProvider not found in public config");
       return await graphqlAllByTypeAndOwner(graphqlProvider, type, owner);

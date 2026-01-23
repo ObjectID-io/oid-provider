@@ -7,8 +7,8 @@ import type { ObjectIdApi } from "../api";
 import { createObjectIdApi } from "../api";
 import { signAndExecute } from "../tx";
 
-import type { ObjectIdProviderConfig, gasStationCfg } from "../types/types";
-import type { ConfigPackageIds, LoadedConfig, Network } from "../onchain/config";
+import type { ObjectIdProviderConfig, gasStationCfg, Network } from "../types/types";
+import type { ConfigPackageIds, LoadedConfig } from "../onchain/config";
 import { loadPublicConfig, loadConfigJsonByObjectId } from "../onchain/config";
 import { DEFAULT_CONFIG_PACKAGE_IDS } from "../onchain/defaults";
 

@@ -1,7 +1,14 @@
 import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
 import { DEFAULT_SHARED_CONFIG_OBJECT_ID } from "./defaults";
+import type { Network } from "../types/types";
 
-export type Network = "testnet" | "mainnet";
+type CanonicalNetwork = "testnet" | "mainnet";
+
+function normalizeNetwork(network: Network): CanonicalNetwork {
+  const n = String(network ?? "").toLowerCase().trim();
+  if (n === "mainnet" || n === "iota") return "mainnet";
+  return "testnet";
+}
 
 export type ConfigPackageIds = {
   testnet: string;
@@ -46,7 +53,8 @@ export async function getObjectJson(client: IotaClient, objectId: string): Promi
  * Uses JSON-RPC only (browser CORS must allow the node endpoint).
  */
 export async function loadConfigJsonByObjectId(network: Network, objectId: string): Promise<Record<string, any>> {
-  const client = new IotaClient({ url: getFullnodeUrl(network as any) });
+  const net = normalizeNetwork(network);
+  const client = new IotaClient({ url: getFullnodeUrl(net as any) });
   return await getObjectJson(client, objectId);
 }
 
@@ -94,9 +102,10 @@ export async function findUserConfigObjectId(
  * This does NOT attempt to load any user-owned config.
  */
 export async function loadPublicConfig(network: Network): Promise<LoadedConfig> {
-  const client = new IotaClient({ url: getFullnodeUrl(network as any) });
-  const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[network];
-  if (!defaultId) throw new Error(`Missing DEFAULT_SHARED_CONFIG_OBJECT_ID for network=${network}`);
+  const net = normalizeNetwork(network);
+  const client = new IotaClient({ url: getFullnodeUrl(net as any) });
+  const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[net];
+  if (!defaultId) throw new Error(`Missing DEFAULT_SHARED_CONFIG_OBJECT_ID for network=${net}`);
   const json = await getObjectJson(client, defaultId);
   return { source: "default", objectId: String(defaultId), json };
 }
@@ -106,10 +115,11 @@ export async function loadEffectiveConfig(
   configPkgs: ConfigPackageIds,
   ownerAddress: string
 ): Promise<LoadedConfig> {
-  const client = new IotaClient({ url: getFullnodeUrl(network as any) });
+  const net = normalizeNetwork(network);
+  const client = new IotaClient({ url: getFullnodeUrl(net as any) });
 
-  const cfgPkg = network === "mainnet" ? configPkgs.mainnet : configPkgs.testnet;
-  if (!cfgPkg) throw new Error(`Missing config packageId for network=${network}`);
+  const cfgPkg = net === "mainnet" ? configPkgs.mainnet : configPkgs.testnet;
+  if (!cfgPkg) throw new Error(`Missing config packageId for network=${net}`);
 
   const userId = await findUserConfigObjectId(client, ownerAddress, cfgPkg);
   if (userId) {
@@ -117,9 +127,9 @@ export async function loadEffectiveConfig(
     return { source: "user", objectId: userId, json };
   }
 
-  const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[network];
+  const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[net];
   if (!defaultId) {
-    throw new Error(`Missing DEFAULT_SHARED_CONFIG_OBJECT_ID for network=${network}`);
+    throw new Error(`Missing DEFAULT_SHARED_CONFIG_OBJECT_ID for network=${net}`);
   }
 
   const json = await getObjectJson(client, defaultId);
