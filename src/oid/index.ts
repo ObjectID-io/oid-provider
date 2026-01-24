@@ -32,9 +32,9 @@ export type OidSession = {
   /** Last loaded public config */
   publicConfig?: LoadedConfig;
 
-  /** IOTA Identity ControllerCap objectId matching `did` (deterministic via controller_of) */
+  /** IOTA Identity ControllerCap objectId matching `did` */
   identityControllerCap?: string;
-  /** OID Identity ControllerCap objectId matching `did` (deterministic via controller_of) */
+  /** OID Identity ControllerCap objectId matching `did` */
   oidControllerCap?: string;
 
   /** Owned credit token objectIds */
@@ -67,19 +67,18 @@ function notInitialized(): never {
 export type Oid = ObjectIdApi & {
   /** Provider-level config (readable even without a session).
    *
-   * - oid.config()                     -> returns effective provider config JSON (loads from chain if missing)
-   * - oid.config(network)              -> loads provider config JSON for network from chain
-   * - oid.config(json)                 -> sets provider config JSON manually (kept in memory)
-   * - oid.config({ network, json })    -> sets manual provider config JSON + network
+   * - oid.config()                          -> returns effective provider config JSON (loads from chain if missing)
+   * - oid.config(network)                   -> loads provider config JSON for network from chain
+   * - oid.config(json)                      -> sets provider config JSON manually (kept in memory)
+   * - oid.config({ network, json })         -> sets manual provider config JSON + network
+   * - oid.config({ network, objectId })     -> loads provider config JSON from on-chain objectId (RPC)
    */
   config: (
     arg?:
       | string
       | Record<string, any>
-      | {
-          network?: string;
-          json: Record<string, any>;
-        }
+      | { network?: string; json: Record<string, any> }
+      | { network?: string; objectId: string },
   ) => Promise<Record<string, any>>;
 
   /** Initializes a session (tx signing). */
@@ -103,7 +102,7 @@ export type Oid = ObjectIdApi & {
     /** Returns remaining credit for the active credit token (best-effort). */
     credit: () => Promise<string | null>;
 
-    /** Subscribe to tx execution completion (success OR failure). Useful to refresh credits deterministically. */
+    /** Subscribe to tx execution completion (success OR failure). */
     onCreditChanged: (cb: (r: TxExecResult) => void) => () => void;
 
     /** Returns the current session details (effective config + resolved capabilities). */
@@ -154,8 +153,8 @@ export function createOid(): Oid {
   const ensureProvider = async (network?: string): Promise<ProviderState> => {
     const net = normalizeProviderNetwork(network);
 
-    // keep manual config if network matches
-    if (provider && provider.network === net && provider.configJson) return provider;
+    // keep current provider state if already loaded for the same net (manual or public or object)
+    if (provider && provider.network === net) return provider;
 
     const loaded = await loadPublicConfig(net as any);
     provider = {
@@ -175,7 +174,7 @@ export function createOid(): Oid {
     network: string,
     cfgJson: Record<string, any>,
     configObjectId?: string,
-    publicConfig?: LoadedConfig
+    publicConfig?: LoadedConfig,
   ) => {
     const merged: ObjectIdProviderConfig = {
       ...(cfgJson as any),
@@ -249,23 +248,24 @@ export function createOid(): Oid {
       return p.configJson;
     }
 
-    // load from chain by network
+    // load from chain by network (PUBLIC)
     if (typeof arg === "string") {
       const p = await ensureProvider(arg);
       return p.configJson;
     }
 
-    // set manual provider config
+    // set / load manual provider config
     if (typeof arg === "object" && arg !== null && !Array.isArray(arg)) {
       // on-chain object form: { network?, objectId }
       if (typeof (arg as any).objectId === "string" && String((arg as any).objectId).trim()) {
         const net = normalizeProviderNetwork((arg as any).network);
         const objectId = String((arg as any).objectId).trim();
         const json = await loadConfigJsonByObjectId(net as any, objectId);
+
         provider = {
           network: net,
           configJson: json ?? {},
-          source: "public",
+          source: "object",
           configObjectId: objectId,
           publicConfig: undefined,
         };
@@ -274,8 +274,8 @@ export function createOid(): Oid {
 
       // wrapper form: { network?, json }
       if (Object.prototype.hasOwnProperty.call(arg, "json")) {
-        const net = normalizeProviderNetwork(arg.network);
-        const json = (arg.json ?? {}) as Record<string, any>;
+        const net = normalizeProviderNetwork((arg as any).network);
+        const json = ((arg as any).json ?? {}) as Record<string, any>;
         provider = {
           network: net,
           configJson: json,
@@ -301,6 +301,7 @@ export function createOid(): Oid {
     const did = String(p?.did ?? "").trim();
     const seed = String(p?.seed ?? "").trim();
     const seedPath = String(p?.seedPath ?? "").trim() || undefined;
+
     if (!did) throw new Error("DID is required.");
     if (!seed) throw new Error("Seed is required.");
 
@@ -313,10 +314,9 @@ export function createOid(): Oid {
   };
 
   const disconnect: Oid["disconnect"] = () => {
+    // per tua richiesta: SOLO reset sessione
     api = null;
     s = null;
-    // keep provider config; only session is cleared
-    creditListeners.clear();
   };
 
   const sessionObj: Oid["session"] = {
@@ -415,7 +415,7 @@ export function createOid(): Oid {
         return typeof v === "function" ? v.bind(api) : v;
       }
 
-      // provide a nice error for accidental config-object-id loading attempt
+      // optional helper exposure
       if (prop === "loadConfigJsonByObjectId") {
         return async (network: string, objectId: string) => {
           return await loadConfigJsonByObjectId(network as any, objectId);
