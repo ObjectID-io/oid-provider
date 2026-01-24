@@ -1,6 +1,8 @@
 import type { IotaTransactionBlockResponse, ExecutionStatus } from "@iota/iota-sdk/client";
 
-export type Network = "testnet" | "mainnet" | (string & {});
+// NOTE: deliberately wide for client simplicity.
+// Internally we normalize to canonical networks where needed.
+export type Network = string;
 
 export type gasStationCfg = {
   gasStation1URL: string;

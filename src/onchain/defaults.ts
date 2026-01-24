@@ -1,15 +1,21 @@
-// src/onchain/defaults.ts
 import type { ConfigPackageIds } from "./config";
+import type { Network } from "../types/types";
 
-/** Canonical networks supported by pinned on-chain default config objects. */
-export type CanonicalNetwork = "testnet" | "mainnet";
-
-export const DEFAULT_SHARED_CONFIG_OBJECT_ID: Record<CanonicalNetwork, string> = {
-  testnet: "0x7aa63a81769d7cf6f4c8ae17d95ec717b74bdc651e2b8b3d4141442d1b93d0eb",
-  mainnet: "0xf4079a196b734992e13160ee3c0bdad0ad8f828e4287fb46d52bfe8f88ed4e41",
-};
-
+/**
+ * Built-in default config package IDs.
+ * Override at runtime by passing `configPackageIds` prop to <ObjectID />.
+ */
 export const DEFAULT_CONFIG_PACKAGE_IDS: ConfigPackageIds = {
-  testnet: "0xfc3da4c5862a7c07d71a9f7ee9fb288eb82b8425f9bddcd17e9e288924cd8d65",
-  mainnet: "0xb333432b6e17ab29c7d5ddcbbefafcc8f52badf1d4660a93f36266a5b1e6990e",
+  testnet: "0x7560b5cb2024a3a712ed1e09f4e42ba806b886a44262c9d40ac31fbcfeb30cc0",
+  mainnet: "", // TODO: set mainnet config package id
 };
+
+/**
+ * Built-in shared DEFAULT Config object ids (oid_config::Config) for each network.
+ * These are the shared objects created at publish/init time.
+ */
+export const DEFAULT_SHARED_CONFIG_OBJECT_ID: Record<Network, string> = {
+  testnet: "0xf9d3f786ac5ee53f293b87f6800eee852d6e7263d78275377f5d13db04f4be15",
+  mainnet: "",
+};
+
