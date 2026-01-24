@@ -1,7 +1,7 @@
 import type { IotaTransactionBlockResponse, ExecutionStatus } from "@iota/iota-sdk/client";
 
-// NOTE: deliberately wide for client simplicity.
-// Internally we normalize to canonical networks where needed.
+// Network is intentionally a plain string.
+// The provider normalizes it internally (e.g. "iota"/"mainnet" -> "mainnet").
 export type Network = string;
 
 export type gasStationCfg = {
@@ -15,6 +15,9 @@ export type gasStationCfg = {
 export type ObjectIdProviderConfig = {
   network: Network;
   seed: string;
+
+  /** Optional derivation path used to deterministically derive a different key from the same seed. */
+  seedPath?: string;
 
   /** Optional overrides */
   graphqlProvider?: string;

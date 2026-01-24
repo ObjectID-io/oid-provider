@@ -1,5 +1,6 @@
 import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
 import { DEFAULT_SHARED_CONFIG_OBJECT_ID } from "./defaults";
+
 import type { Network } from "../types/types";
 
 type CanonicalNetwork = "testnet" | "mainnet";

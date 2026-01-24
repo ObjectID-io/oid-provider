@@ -1,4 +1,3 @@
-// src/oid/index.ts
 import { getFullnodeUrl, IotaClient, type IotaObjectData } from "@iota/iota-sdk/client";
 
 import { createObjectIdApi, type ObjectIdApi } from "../api";
@@ -13,7 +12,7 @@ import { getOwnedObjectIdsByType } from "./ownedObjects";
 
 /**
  * Session state exposed by the high-level OID wrapper.
- * Values are resolved in `oid.config(...)`.
+ * Values are resolved in `oid.connect(...)`.
  */
 export type OidSession = {
   initialized: boolean;
@@ -21,6 +20,7 @@ export type OidSession = {
   network: string;
   did: string;
   seed: string;
+  seedPath?: string;
 
   address: string;
   graphqlProvider: string;
@@ -43,41 +43,52 @@ export type OidSession = {
   activeCreditToken?: string;
 };
 
-type OidConfigParams = { did: string; seed: string; network: string };
+export type ConnectParams = {
+  did: string;
+  seed: string;
+  /** Optional, defaults to current provider config network (or "testnet") */
+  network?: string;
+  /** Optional derivation path for deterministic key selection */
+  seedPath?: string;
+};
+
+type ProviderState = {
+  network: string;
+  configJson: Record<string, any>;
+  source: "public" | "manual" | "object";
+  configObjectId?: string;
+  publicConfig?: LoadedConfig;
+};
 
 function notInitialized(): never {
   throw new Error("not initialized");
 }
 
-function normalizeNet(n?: string): "testnet" | "mainnet" {
-  const s = String(n ?? "")
-    .toLowerCase()
-    .trim();
-  if (s === "mainnet" || s === "iota") return "mainnet";
-  return "testnet";
-}
-
 export type Oid = ObjectIdApi & {
-  /**
-   * Overload:
-   * - config(did, seed, network) -> initialize session (tx signing)
-   * - config(network?)          -> return PUBLIC config JSON (no session required)
+  /** Provider-level config (readable even without a session).
+   *
+   * - oid.config()                     -> returns effective provider config JSON (loads from chain if missing)
+   * - oid.config(network)              -> loads provider config JSON for network from chain
+   * - oid.config(json)                 -> sets provider config JSON manually (kept in memory)
+   * - oid.config({ network, json })    -> sets manual provider config JSON + network
    */
-  config: {
-    (did: string, seed: string, network: string): Promise<void>;
-    (network?: string): Promise<Record<string, any>>;
-  };
+  config: (
+    arg?:
+      | string
+      | Record<string, any>
+      | {
+          network?: string;
+          json: Record<string, any>;
+        }
+  ) => Promise<Record<string, any>>;
 
-  /** Alias: read public config without session */
-  publicConfig: (network?: string) => Promise<Record<string, any>>;
+  /** Initializes a session (tx signing). */
+  connect: (p: ConnectParams) => Promise<void>;
 
-  /** Same as config(did, seed, network) but via object param */
-  configParams: (p: OidConfigParams) => Promise<void>;
-
-  /** Explicit reset (logout): drops session + api instance */
+  /** Resets session state (no-op if already disconnected). */
   disconnect: () => void;
 
-  /** Current session snapshot (throws if not initialized) */
+  /** Current session snapshot (requires connect). */
   session: {
     readonly network: string;
     readonly did: string;
@@ -92,13 +103,13 @@ export type Oid = ObjectIdApi & {
     /** Returns remaining credit for the active credit token (best-effort). */
     credit: () => Promise<string | null>;
 
-    /** Subscribe to tx execution completion (success OR failure). */
+    /** Subscribe to tx execution completion (success OR failure). Useful to refresh credits deterministically. */
     onCreditChanged: (cb: (r: TxExecResult) => void) => () => void;
 
-    /** Gets or sets active config. No arg => current JSON. Object => set JSON. String => load from on-chain objectId. */
-    config: (arg?: Record<string, any> | string) => Promise<Record<string, any>>;
+    /** Returns the current session details (effective config + resolved capabilities). */
+    config: () => OidSession;
 
-    /** Exposes raw resolved session for debugging */
+    /** Exposes raw resolved session for debugging (same as config()). */
     raw: () => OidSession;
   };
 
@@ -110,11 +121,13 @@ export type Oid = ObjectIdApi & {
 
 /**
  * Creates a high-level wrapper around the generated ObjectId API.
- * Before calling tx methods you MUST call `oid.config(did, seed, network)` (or `oid.configParams(...)`).
+ * - Read-only methods work without a session.
+ * - Tx methods require `oid.connect(...)`.
  */
 export function createOid(): Oid {
   let api: ObjectIdApi | null = null;
   let s: OidSession | null = null;
+  let provider: ProviderState | null = null;
 
   // Credit change listeners (hint-based, deterministic on tx execution completion).
   const creditListeners = new Set<(r: TxExecResult) => void>();
@@ -128,23 +141,47 @@ export function createOid(): Oid {
     }
   };
 
-  const ensure = (): { api: ObjectIdApi; s: OidSession } => {
+  const ensureSession = (): { api: ObjectIdApi; s: OidSession } => {
     if (!api || !s || !s.initialized) notInitialized();
     return { api, s };
   };
 
-  const applyConfigJson = async (
-    seed: string,
+  const normalizeProviderNetwork = (network?: string): string => {
+    const n = String(network ?? provider?.network ?? "testnet").trim();
+    return n || "testnet";
+  };
+
+  const ensureProvider = async (network?: string): Promise<ProviderState> => {
+    const net = normalizeProviderNetwork(network);
+
+    // keep manual config if network matches
+    if (provider && provider.network === net && provider.configJson) return provider;
+
+    const loaded = await loadPublicConfig(net as any);
+    provider = {
+      network: net,
+      configJson: loaded.json ?? {},
+      source: "public",
+      configObjectId: loaded.objectId,
+      publicConfig: loaded,
+    };
+    return provider;
+  };
+
+  const applyConfigJsonForSession = async (
     did: string,
+    seed: string,
+    seedPath: string | undefined,
     network: string,
     cfgJson: Record<string, any>,
     configObjectId?: string,
-    publicConfig?: LoadedConfig,
+    publicConfig?: LoadedConfig
   ) => {
     const merged: ObjectIdProviderConfig = {
       ...(cfgJson as any),
       network,
       seed,
+      seedPath,
     };
 
     api = createObjectIdApi(merged);
@@ -190,10 +227,9 @@ export function createOid(): Oid {
       network,
       did,
       seed,
-
+      seedPath,
       address,
       graphqlProvider,
-
       configJson: cfgJson,
       configObjectId,
       publicConfig,
@@ -206,69 +242,104 @@ export function createOid(): Oid {
     };
   };
 
-  const configParams = async (p: OidConfigParams) => {
-    const did = (p.did ?? "").trim();
-    const seed = (p.seed ?? "").trim();
-    const network = String(p.network ?? "").trim();
-
-    if (!did) throw new Error("DID is required.");
-    if (!seed) throw new Error("Seed is required.");
-    if (!network) throw new Error("Network is required.");
-
-    const publicCfg = await loadPublicConfig(network);
-    const cfgJson = publicCfg.json ?? {};
-    await applyConfigJson(seed, did, network, cfgJson, undefined, publicCfg);
-  };
-
-  const config = async (...args: any[]): Promise<any> => {
-    // Overload:
-    // - config(did, seed, network) -> initialize session (tx signing)
-    // - config(network?)          -> return PUBLIC config JSON (no session required)
-    if (args.length === 3) {
-      const [did, seed, network] = args as [string, string, string];
-      await configParams({ did, seed, network });
-      return;
+  const config: Oid["config"] = async (arg?: any) => {
+    // getter: returns effective provider config JSON
+    if (arg === undefined) {
+      const p = await ensureProvider();
+      return p.configJson;
     }
 
-    const [network] = args as [string?];
-    const net = (network ?? "testnet") as string;
-    const cfg = await loadPublicConfig(net);
-    return cfg.json;
+    // load from chain by network
+    if (typeof arg === "string") {
+      const p = await ensureProvider(arg);
+      return p.configJson;
+    }
+
+    // set manual provider config
+    if (typeof arg === "object" && arg !== null && !Array.isArray(arg)) {
+      // on-chain object form: { network?, objectId }
+      if (typeof (arg as any).objectId === "string" && String((arg as any).objectId).trim()) {
+        const net = normalizeProviderNetwork((arg as any).network);
+        const objectId = String((arg as any).objectId).trim();
+        const json = await loadConfigJsonByObjectId(net as any, objectId);
+        provider = {
+          network: net,
+          configJson: json ?? {},
+          source: "public",
+          configObjectId: objectId,
+          publicConfig: undefined,
+        };
+        return provider.configJson;
+      }
+
+      // wrapper form: { network?, json }
+      if (Object.prototype.hasOwnProperty.call(arg, "json")) {
+        const net = normalizeProviderNetwork(arg.network);
+        const json = (arg.json ?? {}) as Record<string, any>;
+        provider = {
+          network: net,
+          configJson: json,
+          source: "manual",
+        };
+        return provider.configJson;
+      }
+
+      // raw json form
+      const net = normalizeProviderNetwork();
+      provider = {
+        network: net,
+        configJson: arg as Record<string, any>,
+        source: "manual",
+      };
+      return provider.configJson;
+    }
+
+    throw new Error("Invalid config argument");
   };
 
-  const publicConfig = async (network: string = "testnet") => {
-    const cfg = await loadPublicConfig(network);
-    return cfg.json;
+  const connect: Oid["connect"] = async (p: ConnectParams) => {
+    const did = String(p?.did ?? "").trim();
+    const seed = String(p?.seed ?? "").trim();
+    const seedPath = String(p?.seedPath ?? "").trim() || undefined;
+    if (!did) throw new Error("DID is required.");
+    if (!seed) throw new Error("Seed is required.");
+
+    const net = normalizeProviderNetwork(p.network);
+
+    // Ensure provider config exists for this network (chain default unless manually set).
+    const prov = await ensureProvider(net);
+
+    await applyConfigJsonForSession(did, seed, seedPath, net, prov.configJson, prov.configObjectId, prov.publicConfig);
   };
 
-  const disconnect = () => {
-    // IMPORTANT: drop both session and api, otherwise Proxy might still expose tx methods
+  const disconnect: Oid["disconnect"] = () => {
     api = null;
     s = null;
+    // keep provider config; only session is cleared
     creditListeners.clear();
   };
 
   const sessionObj: Oid["session"] = {
     get network() {
-      return ensure().s.network;
+      return ensureSession().s.network;
     },
     get did() {
-      return ensure().s.did;
+      return ensureSession().s.did;
     },
     get address() {
-      return ensure().s.address;
+      return ensureSession().s.address;
     },
     get oidControllerCap() {
-      return ensure().s.oidControllerCap;
+      return ensureSession().s.oidControllerCap;
     },
     get identityControllerCap() {
-      return ensure().s.identityControllerCap;
+      return ensureSession().s.identityControllerCap;
     },
     get creditTokens() {
-      return ensure().s.creditTokens;
+      return ensureSession().s.creditTokens;
     },
     creditToken(id?: string) {
-      const { s } = ensure();
+      const { s } = ensureSession();
       if (id === undefined) return s.activeCreditToken;
       const t = id.trim();
       if (!t) throw new Error("creditToken id is required");
@@ -281,83 +352,74 @@ export function createOid(): Oid {
       return () => creditListeners.delete(cb);
     },
     async credit() {
-      const { api, s } = ensure();
+      const { api, s } = ensureSession();
       const tokenId = s.activeCreditToken;
       if (!tokenId) return null;
       const env = await api.env();
       const obj = await getObjectRpc(env.client, tokenId);
       return extractBalance((obj as any) ?? null);
     },
-    async config(arg?: Record<string, any> | string) {
-      const { s } = ensure();
-
-      if (arg === undefined) return s.configJson;
-
-      // set by JSON
-      if (typeof arg === "object" && arg !== null && !Array.isArray(arg)) {
-        const nextJson = arg as Record<string, any>;
-        await applyConfigJson(s.seed, s.did, s.network, nextJson, undefined, s.publicConfig);
-        return ensure().s.configJson;
-      }
-
-      // set by objectId
-      if (typeof arg === "string") {
-        const objectId = arg.trim();
-        if (!objectId) throw new Error("config objectId is required");
-        const json = await loadConfigJsonByObjectId(s.network, objectId);
-        await applyConfigJson(s.seed, s.did, s.network, json, objectId, s.publicConfig);
-        return ensure().s.configJson;
-      }
-
-      throw new Error("Invalid config argument");
+    config() {
+      return ensureSession().s;
     },
     raw() {
-      return ensure().s;
+      return ensureSession().s;
     },
   };
 
   const base: any = {
     config,
-    publicConfig,
-    configParams,
+    connect,
     disconnect,
     session: sessionObj,
 
     // uninitialized-safe methods
     async getObject(id: string, network: string) {
-      const client = new IotaClient({ url: getFullnodeUrl(normalizeNet(network) as any) });
+      const client = new IotaClient({ url: getFullnodeUrl(network as any) });
       const obj = await getObjectRpc(client, id);
       return (obj as any) ?? null;
     },
 
     async getObjectsByType(type: string, network: string) {
-      const publicCfg = await loadPublicConfig(network);
-      const graphqlProvider = String((publicCfg.json as any)?.graphqlProvider ?? "").trim();
-      if (!graphqlProvider) throw new Error("graphqlProvider not found in public config");
+      const p = await ensureProvider(network);
+      const graphqlProvider = String((p.configJson as any)?.graphqlProvider ?? "").trim();
+      if (!graphqlProvider) throw new Error("graphqlProvider not found in provider config");
       return await graphqlAllByType(graphqlProvider, type);
     },
 
     async getObjectsByTypeAndOwner(type: string, owner: string, network: string) {
-      const publicCfg = await loadPublicConfig(network);
-      const graphqlProvider = String((publicCfg.json as any)?.graphqlProvider ?? "").trim();
-      if (!graphqlProvider) throw new Error("graphqlProvider not found in public config");
+      const p = await ensureProvider(network);
+      const graphqlProvider = String((p.configJson as any)?.graphqlProvider ?? "").trim();
+      if (!graphqlProvider) throw new Error("graphqlProvider not found in provider config");
       return await graphqlAllByTypeAndOwner(graphqlProvider, type, owner);
     },
   };
 
-  // Proxy to forward ALL existing API methods once initialized, otherwise throw "not initialized"
+  // Proxy to forward ALL existing API methods once connected, otherwise throw "not initialized"
   return new Proxy(base, {
     get(_target, prop: string | symbol) {
       // expose our own fields
       if (prop in base) return base[prop as any];
 
       // allow inspection
-      if (prop === "toJSON") return () => ({ initialized: !!s?.initialized, network: s?.network, address: s?.address });
+      if (prop === "toJSON")
+        return () => ({
+          connected: !!s?.initialized,
+          network: s?.network ?? provider?.network,
+          address: s?.address,
+        });
 
-      // IMPORTANT: expose api methods ONLY when session is initialized
-      if (api && s?.initialized && (api as any)[prop] !== undefined) {
+      // if connected and api has property, return it
+      if (api && (api as any)[prop] !== undefined) {
         const v = (api as any)[prop];
         return typeof v === "function" ? v.bind(api) : v;
+      }
+
+      // provide a nice error for accidental config-object-id loading attempt
+      if (prop === "loadConfigJsonByObjectId") {
+        return async (network: string, objectId: string) => {
+          return await loadConfigJsonByObjectId(network as any, objectId);
+        };
       }
 
       // otherwise return a function that throws (so calls fail with required message)

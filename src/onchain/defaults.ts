@@ -1,5 +1,7 @@
 import type { ConfigPackageIds } from "./config";
-import type { Network } from "../types/types";
+
+// Canonical network keys for on-chain defaults.
+export type CanonicalNetwork = "testnet" | "mainnet";
 
 /**
  * Built-in default config package IDs.
@@ -14,7 +16,7 @@ export const DEFAULT_CONFIG_PACKAGE_IDS: ConfigPackageIds = {
  * Built-in shared DEFAULT Config object ids (oid_config::Config) for each network.
  * These are the shared objects created at publish/init time.
  */
-export const DEFAULT_SHARED_CONFIG_OBJECT_ID: Record<Network, string> = {
+export const DEFAULT_SHARED_CONFIG_OBJECT_ID: Record<CanonicalNetwork, string> = {
   testnet: "0xf9d3f786ac5ee53f293b87f6800eee852d6e7263d78275377f5d13db04f4be15",
   mainnet: "",
 };

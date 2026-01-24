@@ -34,6 +34,47 @@ function mustArray(name: string, v: any): string[] {
   return v.map((x) => String(x));
 }
 
+function hexToBytes(hex: string): Uint8Array {
+  const h = hex.trim().toLowerCase().replace(/^0x/, "");
+  if (!h) return new Uint8Array();
+  if (h.length % 2 !== 0) throw new Error("Invalid hex seed length");
+  const out = new Uint8Array(h.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function sha256(data: Uint8Array): Promise<Uint8Array> {
+  // Browser + Node 20+: WebCrypto
+  const subtle = (globalThis as any)?.crypto?.subtle;
+  if (subtle?.digest) {
+    const buf = await subtle.digest("SHA-256", data);
+    return new Uint8Array(buf);
+  }
+
+  // Node fallback (should not run in the browser)
+  const { createHash } = await import("crypto");
+  return new Uint8Array(createHash("sha256").update(Buffer.from(data)).digest());
+}
+
+async function deriveSeedHex(seedHex: string, seedPath?: string): Promise<string> {
+  const path = String(seedPath ?? "").trim();
+  if (!path) return seedHex;
+  const seedBytes = hexToBytes(seedHex);
+  const pathBytes = new TextEncoder().encode(path);
+  const data = new Uint8Array(seedBytes.length + pathBytes.length);
+  data.set(seedBytes, 0);
+  data.set(pathBytes, seedBytes.length);
+  const h = await sha256(data);
+  // 32 bytes -> 64 hex chars
+  return bytesToHex(h.slice(0, 32));
+}
+
 /**
  * Resolves runtime environment using ONLY the provider configuration (loaded from on-chain oid_config).
  * No hardcoded defaults are used here.
@@ -61,7 +102,8 @@ export async function resolveEnv(cfg: ObjectIdProviderConfig): Promise<ResolvedE
   const documentPackageID = documentPackages[docVer];
 
   const client = new IotaClient({ url: getFullnodeUrl(net as any) });
-  const keyPair = Ed25519Keypair.deriveKeypairFromSeed(seed);
+  const effectiveSeed = await deriveSeedHex(seed, cfg.seedPath);
+  const keyPair = Ed25519Keypair.deriveKeypairFromSeed(effectiveSeed);
   const sender = keyPair.toIotaAddress();
 
   const tokenCreditType = `0x2::token::Token<${packageID}::oid_credit::OID_CREDIT>`;
