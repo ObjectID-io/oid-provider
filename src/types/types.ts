@@ -2,7 +2,6 @@ import type { IotaTransactionBlockResponse, ExecutionStatus } from "@iota/iota-s
 
 // Network is intentionally a plain string.
 // The provider normalizes it internally (e.g. "iota"/"mainnet" -> "mainnet").
-export type Network = string;
 
 export type gasStationCfg = {
   gasStation1URL: string;
@@ -11,9 +10,8 @@ export type gasStationCfg = {
   gasStation2Token?: string;
 };
 
-
 export type ObjectIdProviderConfig = {
-  network: Network;
+  network: string;
   seed: string;
 
   /** Optional derivation path used to deterministically derive a different key from the same seed. */

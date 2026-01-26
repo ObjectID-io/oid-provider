@@ -7,7 +7,7 @@ import type { ObjectIdApi } from "../api";
 import { createObjectIdApi } from "../api";
 import { signAndExecute } from "../tx";
 
-import type { ObjectIdProviderConfig, gasStationCfg, Network } from "../types/types";
+import type { ObjectIdProviderConfig, gasStationCfg } from "../types/types";
 import type { ConfigPackageIds, LoadedConfig } from "../onchain/config";
 import { loadPublicConfig, loadConfigJsonByObjectId } from "../onchain/config";
 import { DEFAULT_CONFIG_PACKAGE_IDS } from "../onchain/defaults";
@@ -15,7 +15,7 @@ import { DEFAULT_CONFIG_PACKAGE_IDS } from "../onchain/defaults";
 import { getObject } from "../onchain/getObjects";
 
 type Session = {
-  network: Network;
+  network: string;
   seed: string; // hex
   gasBudget?: number;
 };
@@ -41,10 +41,10 @@ type Ctx = {
   error: string | null;
 
   /** Selected network even before connect(). Defaults to testnet. */
-  selectedNetwork: Network;
+  selectedNetwork: string;
 
   /** Loads the public config for `network` and makes it active (drops any previous override). */
-  selectNetwork: (network: Network) => Promise<void>;
+  selectNetwork: (network: string) => Promise<void>;
 
   /** Sets seed and network, loads the public config for that network, and initializes the API with it. */
   connect: (session: Session) => Promise<void>;
@@ -91,11 +91,11 @@ function withTimeout<T>(p: Promise<T>, ms = 15_000, label = "operation"): Promis
 
 type CachedCfg = { objectId: string; json: Record<string, any> };
 
-function cacheKey(network: Network) {
+function cacheKey(network: string) {
   return `objectid_public_cfg_${network}`;
 }
 
-function readCachedPublic(network: Network): CachedCfg | null {
+function readCachedPublic(network: string): CachedCfg | null {
   try {
     const raw = localStorage.getItem(cacheKey(network));
     if (!raw) return null;
@@ -109,7 +109,7 @@ function readCachedPublic(network: Network): CachedCfg | null {
   }
 }
 
-function writeCachedPublic(network: Network, cfg: { objectId: string; json: Record<string, any> }) {
+function writeCachedPublic(network: string, cfg: { objectId: string; json: Record<string, any> }) {
   try {
     localStorage.setItem(cacheKey(network), JSON.stringify({ objectId: cfg.objectId, json: cfg.json }));
   } catch {
@@ -118,8 +118,8 @@ function writeCachedPublic(network: Network, cfg: { objectId: string; json: Reco
 }
 
 function mapJsonToProviderConfig(
-  base: { network: Network; seed: string; gasBudget: number },
-  j: Record<string, any>
+  base: { network: string; seed: string; gasBudget: number },
+  j: Record<string, any>,
 ): ObjectIdProviderConfig {
   const objectPackages = j.objectPackages ?? j.object_packages;
   const documentPackages = j.documentPackages ?? j.document_packages;
@@ -185,7 +185,7 @@ function hexToU8a(hex: string): Uint8Array {
 export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
   const effectiveConfigPackageIds = configPackageIds ?? DEFAULT_CONFIG_PACKAGE_IDS;
 
-  const [selectedNetwork, setSelectedNetwork] = useState<Network>("testnet");
+  const [selectedNetwork, setSelectedNetwork] = useState<string>("testnet");
 
   const [session, setSession] = useState<Session | null>(null);
   const [publicConfig, setPublicConfig] = useState<LoadedConfig | null>(null);
@@ -197,7 +197,7 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
 
   const clientsRef = useRef<Record<string, IotaClient>>({});
 
-  const getClientForNetwork = useCallback((net: Network) => {
+  const getClientForNetwork = useCallback((net: string) => {
     const key = String(net);
     if (!clientsRef.current[key]) {
       clientsRef.current[key] = new IotaClient({ url: getFullnodeUrl(net as any) });
@@ -265,7 +265,7 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
   }, []);
 
   const selectNetwork = useCallback(
-    async (network: Network) => {
+    async (network: string) => {
       setStatus("loading");
       setError(null);
 
@@ -290,7 +290,7 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
         throw e;
       }
     },
-    [buildApi, session]
+    [buildApi, session],
   );
 
   const connect = useCallback(
@@ -321,7 +321,7 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
         throw e;
       }
     },
-    [buildApi]
+    [buildApi],
   );
 
   const disconnect = useCallback(async () => {
@@ -468,7 +468,7 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
         throw e;
       }
     },
-    [buildApi, effectiveConfigPackageIds, session]
+    [buildApi, effectiveConfigPackageIds, session],
   );
 
   const applyCfgObject = useCallback(
@@ -495,11 +495,11 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
         throw e;
       }
     },
-    [buildApi, selectedNetwork, session]
+    [buildApi, selectedNetwork, session],
   );
 
   const getCfgJsonForNet = useCallback(
-    async (net: Network): Promise<Record<string, any>> => {
+    async (net: string): Promise<Record<string, any>> => {
       // Se connesso e la rete combacia, usa active/public già in memoria
       if (session?.network === net) {
         const j = (activeConfig?.json as any) ?? (publicConfig?.json as any);
@@ -515,7 +515,7 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
       writeCachedPublic(net, { objectId: cfg.objectId, json: cfg.json });
       return cfg.json as any;
     },
-    [activeConfig, publicConfig, session]
+    [activeConfig, publicConfig, session],
   );
 
   const value = useMemo<Ctx>(
@@ -550,7 +550,7 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
       usePublicConfig,
       applyCfg,
       applyCfgObject,
-    ]
+    ],
   );
 
   return <C.Provider value={value}>{children}</C.Provider>;

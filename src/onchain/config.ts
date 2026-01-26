@@ -1,12 +1,10 @@
 import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
 import { DEFAULT_SHARED_CONFIG_OBJECT_ID } from "./defaults";
 
-import type { Network } from "../types/types";
-
-type CanonicalNetwork = "testnet" | "mainnet";
-
-function normalizeNetwork(network: Network): CanonicalNetwork {
-  const n = String(network ?? "").toLowerCase().trim();
+function normalizeNetwork(network: string): string {
+  const n = String(network ?? "")
+    .toLowerCase()
+    .trim();
   if (n === "mainnet" || n === "iota") return "mainnet";
   return "testnet";
 }
@@ -53,7 +51,7 @@ export async function getObjectJson(client: IotaClient, objectId: string): Promi
  * Loads a config JSON stored as UTF-8 bytes in `Config.json` (vector<u8>) by object id.
  * Uses JSON-RPC only (browser CORS must allow the node endpoint).
  */
-export async function loadConfigJsonByObjectId(network: Network, objectId: string): Promise<Record<string, any>> {
+export async function loadConfigJsonByObjectId(network: string, objectId: string): Promise<Record<string, any>> {
   const net = normalizeNetwork(network);
   const client = new IotaClient({ url: getFullnodeUrl(net as any) });
   return await getObjectJson(client, objectId);
@@ -71,7 +69,7 @@ export function configType(packageId: string): string {
 export async function findUserConfigObjectId(
   client: IotaClient,
   owner: string,
-  configPkgId: string
+  configPkgId: string,
 ): Promise<string | null> {
   const type = configType(configPkgId);
 
@@ -102,7 +100,7 @@ export async function findUserConfigObjectId(
  * Loads the public/shared default config for a given network (pinned object id).
  * This does NOT attempt to load any user-owned config.
  */
-export async function loadPublicConfig(network: Network): Promise<LoadedConfig> {
+export async function loadPublicConfig(network: string): Promise<LoadedConfig> {
   const net = normalizeNetwork(network);
   const client = new IotaClient({ url: getFullnodeUrl(net as any) });
   const defaultId = DEFAULT_SHARED_CONFIG_OBJECT_ID[net];
@@ -112,9 +110,9 @@ export async function loadPublicConfig(network: Network): Promise<LoadedConfig> 
 }
 
 export async function loadEffectiveConfig(
-  network: Network,
+  network: string,
   configPkgs: ConfigPackageIds,
-  ownerAddress: string
+  ownerAddress: string,
 ): Promise<LoadedConfig> {
   const net = normalizeNetwork(network);
   const client = new IotaClient({ url: getFullnodeUrl(net as any) });
