@@ -45,7 +45,6 @@ export type ObjectIdApi = {
   update_document_mutable_metadata: (params: any) => Promise<TxExecResult>;
   update_document_owner_did: (params: any) => Promise<TxExecResult>;
   update_document_status: (params: any) => Promise<TxExecResult>;
-  update_document_url: (params: any) => Promise<TxExecResult>;
   update_document_url_hash: (params: any) => Promise<TxExecResult>;
   update_event_mutable_metadata: (params: any) => Promise<TxExecResult>;
   update_geo_location: (params: any) => Promise<TxExecResult>;
@@ -122,7 +121,6 @@ export function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi {
       (methods as any).update_document_mutable_metadata(apiRef, params),
     update_document_owner_did: (params: any) => (methods as any).update_document_owner_did(apiRef, params),
     update_document_status: (params: any) => (methods as any).update_document_status(apiRef, params),
-    update_document_url: (params: any) => (methods as any).update_document_url(apiRef, params),
     update_document_url_hash: (params: any) => (methods as any).update_document_url_hash(apiRef, params),
     update_event_mutable_metadata: (params: any) => (methods as any).update_event_mutable_metadata(apiRef, params),
     update_geo_location: (params: any) => (methods as any).update_geo_location(apiRef, params),
