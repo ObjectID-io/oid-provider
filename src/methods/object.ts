@@ -117,6 +117,7 @@ export async function update_agent_did(
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.string(new_agent_did),
+      tx.object("0x6"),
     ],
     target: moveFunction,
   });
