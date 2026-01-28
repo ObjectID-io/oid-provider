@@ -356,24 +356,22 @@ export function createOid(): Oid {
     connect,
     disconnect,
     async faucet() {
-      const { api, s } = ensureSession();
-      const net = String(s.network ?? "")
-        .toLowerCase()
-        .trim();
+      const { s } = ensureSession();
+
+      const net = String(s.network).toLowerCase().trim();
       if (net !== "testnet") throw new Error("faucet is available only for an active testnet session");
 
+      // ✅ usa SEMPRE la config ufficiale corrente di rete
       const cfg: any = await sessionConfig(s.network);
-      s.configJson = cfg;
+      s.configJson = cfg; // aggiorna snapshot sessione
 
-      const faucetURL = String(cfg.faucetURL ?? "").trim();
+      const faucetURL = String(cfg.faucetURL).trim();
       if (!faucetURL) throw new Error("Missing faucetURL in config JSON");
 
-      const pkgFromCfg = pickStringByNetwork(cfg.OIDcreditPackage ?? cfg.oidCreditPackage ?? cfg.OIDcreditPkg, net);
-      const OIDcreditPackage = normalizeHex(pkgFromCfg || String((await api.env()).packageID ?? ""));
+      const OIDcreditPackage = normalizeHex(String(cfg.OIDcreditPackage).trim());
       if (!OIDcreditPackage) throw new Error("Missing OIDcreditPackage in config JSON");
 
-      const address = String(s.address ?? "").trim();
-      if (!address) throw new Error("Missing session address");
+      const address = String(s.address).trim();
 
       const response = await fetch(faucetURL, {
         method: "POST",
@@ -381,17 +379,14 @@ export function createOid(): Oid {
         body: JSON.stringify({ OIDcreditPackage, address }),
       });
 
-      // best-effort: ignore invalid JSON bodies
-      try {
-        await response.json();
-      } catch {
-        /* ignore */
-      }
+      // il backend deve rispondere JSON
+      await response.json();
 
       if (response.ok) {
         return "✅ 20 free credits have been minted to your address!";
+      } else {
+        return "❌ Failed to request free credits. You own credit!";
       }
-      return "❌ Failed to request free credits. You own credit!";
     },
     officialPackages,
     session: sessionObj,
