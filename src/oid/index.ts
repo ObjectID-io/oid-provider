@@ -14,10 +14,12 @@ import { getOwnedObjectIdsByType } from "./ownedObjects";
  * Session state exposed by the high-level OID wrapper.
  * Values are resolved in `oid.connect(...)`.
  */
+export type Network = "testnet" | "mainnet" | (string & {});
+
 export type OidSession = {
   initialized: boolean;
 
-  network: string;
+  network: Network;
   did: string;
   seed: string;
   seedPath?: string;
@@ -42,7 +44,7 @@ export type OidSession = {
 export type ConnectParams = {
   did: string;
   seed: string;
-  network?: string;
+  network?: Network;
   seedPath?: string;
 };
 
@@ -52,9 +54,12 @@ function notInitialized(): never {
   throw new Error("not initialized");
 }
 
-function normalizeNetwork(network?: string): string {
-  const n = String(network ?? "").trim();
-  return n || "testnet";
+function normalizeNetwork(network?: string): Network {
+  const n = String(network ?? "")
+    .toLowerCase()
+    .trim();
+  if (n === "mainnet" || n === "iota") return "mainnet";
+  return (n || "testnet") as Network;
 }
 
 function mergeConfig(official: Record<string, any>, custom?: Record<string, any> | null) {
@@ -79,12 +84,15 @@ export type Oid = ObjectIdApi & {
   /** Init session (tx signing). */
   connect: (p: ConnectParams) => Promise<void>;
 
+  /** Request free credits (testnet only; requires an active session). */
+  faucet: () => Promise<string>;
+
   /** Read ONLY the official allow-list from on-chain public config. Works without session. */
   officialPackages: (network?: string) => Promise<string[]>;
 
   /** Session accessors */
   session: {
-    readonly network: string;
+    readonly network: Network;
     readonly did: string;
     readonly address: string;
 
@@ -117,6 +125,16 @@ export type Oid = ObjectIdApi & {
   getObjectsByType: (type: string, network: string) => Promise<ObjectEdge[]>;
   getObjectsByTypeAndOwner: (type: string, owner: string, network: string) => Promise<ObjectEdge[]>;
 };
+
+function pickStringByNetwork(value: any, network: string): string {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    const v: any = value;
+    const pick = v[network] ?? v[String(network).toLowerCase()] ?? v.testnet ?? v.mainnet;
+    if (typeof pick === "string") return pick.trim();
+  }
+  return "";
+}
 
 export function createOid(): Oid {
   let api: ObjectIdApi | null = null;
@@ -199,7 +217,7 @@ export function createOid(): Oid {
     did: string,
     seed: string,
     seedPath: string | undefined,
-    network: string,
+    network: Network,
     cfgJson: Record<string, any>,
     configObjectId?: string,
     publicConfig?: LoadedConfig,
@@ -337,6 +355,41 @@ export function createOid(): Oid {
   const base: any = {
     connect,
     disconnect,
+    async faucet() {
+      const { api, s } = ensureSession();
+      const net = String(s.network ?? "").toLowerCase().trim();
+      if (net !== "testnet") throw new Error("faucet is available only for an active testnet session");
+
+      const cfg: any = s.configJson ?? {};
+
+      const mintFreeCreditURL = pickStringByNetwork(cfg.mintFreeCreditURL ?? cfg.mint_free_credit_url, net);
+      if (!mintFreeCreditURL) throw new Error("Missing mintFreeCreditURL in config JSON");
+
+      const pkgFromCfg = pickStringByNetwork(cfg.OIDcreditPackage ?? cfg.oidCreditPackage ?? cfg.OIDcreditPkg, net);
+      const OIDcreditPackage = normalizeHex(pkgFromCfg || String((await api.env()).packageID ?? ""));
+      if (!OIDcreditPackage) throw new Error("Missing OIDcreditPackage in config JSON");
+
+      const address = String(s.address ?? "").trim();
+      if (!address) throw new Error("Missing session address");
+
+      const response = await fetch(mintFreeCreditURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ OIDcreditPackage, address }),
+      });
+
+      // best-effort: ignore invalid JSON bodies
+      try {
+        await response.json();
+      } catch {
+        /* ignore */
+      }
+
+      if (response.ok) {
+        return "✅ 20 free credits have been minted to your address!";
+      }
+      return "❌ Failed to request free credits. You own credit!";
+    },
     officialPackages,
     session: sessionObj,
 
