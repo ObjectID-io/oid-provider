@@ -2,6 +2,7 @@ import { Transaction } from "@iota/iota-sdk/transactions";
 import { signAndExecute } from "../tx";
 import type { ObjectIdApi } from "../api";
 import { ensureTrailingSlashForOriginOnly } from "../utils/url";
+import { IOTA_CLOCK_OBJECT_ID } from "@iota/iota-sdk/utils";
 
 export async function create_object(
   api: ObjectIdApi,
@@ -144,7 +145,7 @@ export async function update_geo_location(
   const gasBudget = api.gasBudget;
 
   const tx = new Transaction();
-  const moveFunction = env.packageID + "::oid_object::update_geo_location";
+  const moveFunction = env.packageID + "::oid_object::update_geolocation";
 
   tx.moveCall({
     arguments: [
@@ -153,6 +154,7 @@ export async function update_geo_location(
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.string(new_location),
+      tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
   });
