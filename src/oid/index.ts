@@ -1,9 +1,12 @@
 import { getFullnodeUrl, IotaClient, type IotaObjectData } from "@iota/iota-sdk/client";
+import { Transaction } from "@iota/iota-sdk/transactions";
+import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
 
 import { createObjectIdApi, type ObjectIdApi } from "../api";
 import { loadPublicConfig, loadConfigJsonByObjectId, type LoadedConfig } from "../onchain/config";
 import type { ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "../types/types";
 import { getObject as getObjectRpc } from "../utils/getObject";
+import { signAndExecute } from "../tx";
 
 import { normalizeHex, pickCapMatchingDid } from "./caps";
 import { extractBalance } from "./credit";
@@ -213,6 +216,32 @@ export function createOid(): Oid {
     return extractOfficialPackages(json);
   };
 
+  // ---- helpers: credit token type + refresh ----
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  const getCreditTypeArgFromCfg = (cfgAny: any) => {
+    const pkg = normalizeHex(String(cfgAny?.OIDcreditPackage ?? cfgAny?.oidCreditPackage ?? "").trim());
+    if (!pkg) throw new Error("Missing OIDcreditPackage in config JSON");
+    return `${pkg}::oid_credit::OID_CREDIT`;
+  };
+
+  const getCreditTokenStructTypeFromCfg = (cfgAny: any) => {
+    const creditTypeArg = getCreditTypeArgFromCfg(cfgAny);
+    return `0x2::token::Token<${creditTypeArg}>`;
+  };
+
+  const refreshSessionCreditTokens = async (client: IotaClient, cfgAny: any) => {
+    if (!s?.initialized) return [];
+    const creditTokenType = getCreditTokenStructTypeFromCfg(cfgAny);
+    const tokens = await getOwnedObjectIdsByType(client, s.address, creditTokenType);
+
+    s.creditTokens = tokens;
+    if (!s.activeCreditToken || !tokens.includes(s.activeCreditToken)) {
+      s.activeCreditToken = tokens[0];
+    }
+    return tokens;
+  };
+
   const applyConfigJsonForSession = async (
     did: string,
     seed: string,
@@ -261,9 +290,10 @@ export function createOid(): Oid {
     if (!identityControllerCap) throw new Error("IOTA Identity ControllerCap not found for the provided DID");
     if (!oidControllerCap) throw new Error("OID Identity ControllerCap not found for the provided DID");
 
-    const creditTokenType = `0x2::token::Token<${env.packageID}::oid_credit::OID_CREDIT>`;
+    // credit token type MUST come from cfg OIDcreditPackage (not env.packageID)
+    const creditTokenType = getCreditTokenStructTypeFromCfg(cfgAny);
     const creditTokens = await getOwnedObjectIdsByType(client, address, creditTokenType);
-    if (!creditTokens.length) throw new Error("No credit tokens found for this address");
+    // NB: non blocchiamo la sessione se non ci sono crediti (serve per usare il faucet al primo accesso)
 
     s = {
       initialized: true,
@@ -356,7 +386,7 @@ export function createOid(): Oid {
     connect,
     disconnect,
     async faucet() {
-      const { s } = ensureSession();
+      const { api, s } = ensureSession();
 
       const net = String(s.network).toLowerCase().trim();
       if (net !== "testnet") throw new Error("faucet is available only for an active testnet session");
@@ -368,7 +398,9 @@ export function createOid(): Oid {
       const faucetURL = String(cfg.faucetURL).trim();
       if (!faucetURL) throw new Error("Missing faucetURL in config JSON");
 
-      const OIDcreditPackage = normalizeHex(String(cfg.OIDcreditPackage).trim());
+      const cfgAny = cfg as any;
+
+      const OIDcreditPackage = normalizeHex(String(cfgAny.OIDcreditPackage ?? "").trim());
       if (!OIDcreditPackage) throw new Error("Missing OIDcreditPackage in config JSON");
 
       const address = String(s.address).trim();
@@ -379,14 +411,85 @@ export function createOid(): Oid {
         body: JSON.stringify({ OIDcreditPackage, address }),
       });
 
-      // il backend deve rispondere JSON
-      await response.json();
+      // il backend deve rispondere JSON (contenuto non necessario)
+      try {
+        await response.json();
+      } catch {
+        /* ignore */
+      }
 
-      if (response.ok) {
-        return "✅ 20 free credits have been minted to your address!";
-      } else {
+      if (!response.ok) {
         return "❌ Failed to request free credits. You own credit!";
       }
+
+      // ---- post-mint: refresh + join ----
+      const envAny: any = await api.env();
+      const client: IotaClient = envAny.client;
+
+      // prova a recuperare il signer/keyPair dalla env o dall'api, fallback: derive dal seed (se compatibile)
+      let keyPair: any =
+        envAny.keyPair ??
+        envAny.keypair ??
+        envAny.signer ??
+        (api as any)?.keyPair ??
+        (api as any)?.keypair ??
+        (api as any)?.signer;
+      if (!keyPair) {
+        try {
+          keyPair = Ed25519Keypair.deriveKeypairFromSeed(String(s.seed).trim());
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!keyPair) throw new Error("Missing session signer/keyPair (cannot join credits)");
+
+      // attesa breve per visibilità oggetto on-chain
+      let tokens: string[] = [];
+      for (let i = 0; i < 4; i++) {
+        tokens = await refreshSessionCreditTokens(client, cfgAny);
+        if (tokens.length >= 2 || i === 3) break;
+        await sleep(600);
+      }
+
+      // se 0/1 token, emetti comunque un hint per refresh UI
+      if (tokens.length <= 1) {
+        emitCreditChanged({ success: true } as any);
+        return "✅ 20 free credits have been minted to your address!";
+      }
+
+      const creditTypeArg = getCreditTypeArgFromCfg(cfgAny);
+
+      // survivor: preferisci activeCreditToken se presente
+      const survivor = s.activeCreditToken && tokens.includes(s.activeCreditToken) ? s.activeCreditToken : tokens[0];
+      const others = tokens.filter((t) => t !== survivor);
+
+      const tx = new Transaction();
+      for (const otherId of others) {
+        tx.moveCall({
+          target: `0x2::token::join`,
+          typeArguments: [creditTypeArg],
+          arguments: [tx.object(survivor), tx.object(otherId)],
+        });
+      }
+
+      const gasBudget = Number(cfgAny?.gasBudget ?? 10_000_000);
+      tx.setGasBudget(gasBudget);
+      tx.setSender(address);
+
+      const r = await signAndExecute(client, keyPair, tx, {
+        network: String(s.network),
+        gasBudget,
+        useGasStation: !!cfgAny?.enableGasStation,
+        gasStation: cfgAny?.gasStation,
+        onExecuted: (res) => emitCreditChanged(res),
+      });
+
+      // refresh finale (dopo join)
+      await refreshSessionCreditTokens(client, cfgAny);
+
+      if (r.success) return "✅ 20 free credits have been minted to your address! (joined)";
+      console.error("join credits failed:", r.error);
+      return "✅ 20 free credits have been minted to your address! (join failed)";
     },
     officialPackages,
     session: sessionObj,
