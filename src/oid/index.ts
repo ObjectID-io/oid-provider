@@ -357,13 +357,16 @@ export function createOid(): Oid {
     disconnect,
     async faucet() {
       const { api, s } = ensureSession();
-      const net = String(s.network ?? "").toLowerCase().trim();
+      const net = String(s.network ?? "")
+        .toLowerCase()
+        .trim();
       if (net !== "testnet") throw new Error("faucet is available only for an active testnet session");
 
-      const cfg: any = s.configJson ?? {};
+      const cfg: any = await sessionConfig(s.network);
+      s.configJson = cfg;
 
-      const mintFreeCreditURL = pickStringByNetwork(cfg.mintFreeCreditURL ?? cfg.mint_free_credit_url, net);
-      if (!mintFreeCreditURL) throw new Error("Missing mintFreeCreditURL in config JSON");
+      const faucetURL = String(cfg.faucetURL ?? "").trim();
+      if (!faucetURL) throw new Error("Missing faucetURL in config JSON");
 
       const pkgFromCfg = pickStringByNetwork(cfg.OIDcreditPackage ?? cfg.oidCreditPackage ?? cfg.OIDcreditPkg, net);
       const OIDcreditPackage = normalizeHex(pkgFromCfg || String((await api.env()).packageID ?? ""));
@@ -372,7 +375,7 @@ export function createOid(): Oid {
       const address = String(s.address ?? "").trim();
       if (!address) throw new Error("Missing session address");
 
-      const response = await fetch(mintFreeCreditURL, {
+      const response = await fetch(faucetURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ OIDcreditPackage, address }),
