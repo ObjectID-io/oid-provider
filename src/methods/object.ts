@@ -299,6 +299,7 @@ export async function update_object_mutable_metadata(
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.string(new_mutable_metadata),
+      tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
   });
