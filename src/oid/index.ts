@@ -4,8 +4,9 @@ import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
 
 import { createObjectIdApi, type ObjectIdApi } from "../api";
 import { loadPublicConfig, loadConfigJsonByObjectId, type LoadedConfig } from "../onchain/config";
+import { getObjectIdsByType, searchObjectsByTypeAndOwner } from "../onchain/getObjects";
 import type { ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "../types/types";
-import { getObject as getObjectRpc } from "../utils/getObject";
+import { getObject, getObject as getObjectRpc } from "../utils/getObject";
 import { signAndExecute } from "../tx";
 
 import { normalizeHex, pickCapMatchingDid } from "./caps";
@@ -39,6 +40,9 @@ export type OidSession = {
 
   identityControllerCap?: string;
   oidControllerCap?: string;
+
+  /** True if the user owns an OID ControllerCap matching the provided DID (i.e., identity is linked / DLVC). */
+  identityIsLinked: boolean;
 
   creditTokens: string[];
   activeCreditToken?: string;
@@ -99,6 +103,9 @@ export type Oid = ObjectIdApi & {
     readonly did: string;
     readonly address: string;
 
+    /** True if the user owns an OID ControllerCap matching the provided DID (linked identity / DLVC). */
+    readonly identityIsLinked: boolean;
+
     readonly oidControllerCap?: string;
     readonly identityControllerCap?: string;
 
@@ -128,6 +135,37 @@ export type Oid = ObjectIdApi & {
   getObjectsByType: (type: string, network: string) => Promise<ObjectEdge[]>;
   getObjectsByTypeAndOwner: (type: string, owner: string, network: string) => Promise<ObjectEdge[]>;
 };
+
+function didToIdentityId(did: string): string {
+  const s = String(did ?? "").trim();
+  if (!s) return "";
+  const parts = s.split(":");
+  const last = String(parts[parts.length - 1] ?? "").trim();
+  if (!last) return "";
+  if (!/^(0x)?[0-9a-fA-F]+$/.test(last)) return "";
+  return normalizeHex(last);
+}
+
+function getMoveFieldsFromEdge(edge: any): any {
+  const data = edge?.node?.asMoveObject?.contents?.data;
+  if (!data) return null;
+  if (typeof data === "string") {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof data === "object") return data;
+  return null;
+}
+
+function extractControllerOf(fields: any): string {
+  if (!fields || typeof fields !== "object") return "";
+  const direct = (fields as any).controller_of ?? (fields as any)?.fields?.controller_of;
+  const nested = (fields as any)?.access_token?.fields?.value?.fields?.controller_of;
+  return normalizeHex(String(direct ?? nested ?? "").trim());
+}
 
 function pickStringByNetwork(value: any, network: string): string {
   if (typeof value === "string") return value.trim();
@@ -277,23 +315,69 @@ export function createOid(): Oid {
     const identityCapType = `${iotaIdentityPackage}::controller::ControllerCap`;
     const oidCapType = `${oidIdentityPackage}::oid_identity::ControllerCap`;
 
-    const [identityCapIds, oidCapIds] = await Promise.all([
-      getOwnedObjectIdsByType(client, address, identityCapType),
-      getOwnedObjectIdsByType(client, address, oidCapType),
-    ]);
-
-    const [identityControllerCap, oidControllerCap] = await Promise.all([
-      pickCapMatchingDid(client, identityCapIds, did),
-      pickCapMatchingDid(client, oidCapIds, did),
-    ]);
-
+    const identityCapIds = await getOwnedObjectIdsByType(client, address, identityCapType);
+    const identityControllerCap = await pickCapMatchingDid(client, identityCapIds, did);
     if (!identityControllerCap) throw new Error("IOTA Identity ControllerCap not found for the provided DID");
-    if (!oidControllerCap) throw new Error("OID Identity ControllerCap not found for the provided DID");
+
+    // OID Identity ControllerCap is OPTIONAL.
+    // If missing, the user is still connected, but cannot create new objects/documents.
+    const didId = (() => {
+      const s = String(did ?? "").trim();
+      const last = s.split(":").pop() ?? "";
+      const ok = last && /^(0x)?[0-9a-fA-F]+$/.test(last);
+      return ok ? normalizeHex(last) : "";
+    })();
+
+    let oidControllerCap: string | undefined;
+    let identityIsLinked = false;
+
+    // ✅ RPC-only: scan owned ControllerCap objects and match fields.controller_of == didId
+    if (didId) {
+      try {
+        const oidCapIds = await getObjectIdsByType(client, address, oidCapType);
+
+        const matches: Array<{ id: string; version: bigint }> = [];
+
+        for (const id of oidCapIds) {
+          const obj: any = await getObject(client, id);
+          if (!obj) continue;
+
+          // RPC shape: obj.content.fields.controller_of
+          const fields =
+            (obj as any)?.content?.fields ??
+            (obj as any)?.content?.data?.fields ??
+            (obj as any)?.data?.content?.fields ??
+            (obj as any)?.data?.content?.data?.fields ??
+            {};
+
+          const controllerOf = normalizeHex(String(fields?.controller_of ?? ""));
+          if (!controllerOf || controllerOf !== didId) continue;
+
+          const vRaw = (obj as any)?.version;
+          let v = 0n;
+          try {
+            if (typeof vRaw === "string" && vRaw) v = BigInt(vRaw);
+            else if (typeof vRaw === "number") v = BigInt(vRaw);
+          } catch {
+            v = 0n;
+          }
+
+          matches.push({ id, version: v });
+        }
+
+        if (matches.length > 0) {
+          matches.sort((a, b) => (a.version === b.version ? a.id.localeCompare(b.id) : a.version > b.version ? -1 : 1));
+          oidControllerCap = matches[0].id;
+          identityIsLinked = true;
+        }
+      } catch {
+        // ok: remains false
+      }
+    }
 
     // credit token type MUST come from cfg OIDcreditPackage (not env.packageID)
     const creditTokenType = getCreditTokenStructTypeFromCfg(cfgAny);
     const creditTokens = await getOwnedObjectIdsByType(client, address, creditTokenType);
-    // NB: non blocchiamo la sessione se non ci sono crediti (serve per usare il faucet al primo accesso)
 
     s = {
       initialized: true,
@@ -309,6 +393,8 @@ export function createOid(): Oid {
 
       identityControllerCap,
       oidControllerCap,
+
+      identityIsLinked,
 
       creditTokens,
       activeCreditToken: creditTokens[0],
@@ -345,6 +431,9 @@ export function createOid(): Oid {
     },
     get address() {
       return ensureSession().s.address;
+    },
+    get identityIsLinked() {
+      return ensureSession().s.identityIsLinked;
     },
     get oidControllerCap() {
       return ensureSession().s.oidControllerCap;
@@ -529,6 +618,14 @@ export function createOid(): Oid {
 
       if (api && (api as any)[prop] !== undefined) {
         const v = (api as any)[prop];
+        if (typeof v === "function" && (prop === "create_object" || prop === "create_document")) {
+          return (params: any) => {
+            const { s } = ensureSession();
+            if (!s.identityIsLinked) throw new Error("function not allowed");
+            return v.call(api, params);
+          };
+        }
+
         return typeof v === "function" ? v.bind(api) : v;
       }
 
