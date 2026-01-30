@@ -1,11 +1,19 @@
 import { Transaction } from "@iota/iota-sdk/transactions";
-import { signAndExecute } from "../utils/tx";
-import type { ObjectIdApi } from "../api";
 
-export async function create_component(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; component_id: any; description: any },
-) {
+import type { ObjectIdApi } from "../api";
+import { signAndExecute } from "../utils/tx";
+import type { IotaAddressString, ObjectIdString } from "../types/types";
+
+export type CreateComponentParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  /** IOTA address (component id) */
+  component_id: IotaAddressString;
+  description: string;
+};
+
+export async function create_component(api: ObjectIdApi, params: CreateComponentParams) {
   const { creditToken, controllerCap, object, component_id, description } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -20,7 +28,7 @@ export async function create_component(
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.address(component_id),
-      tx.pure.string(description),
+      tx.pure.string(String(description ?? "")),
     ],
     target: moveFunction,
   });
@@ -38,10 +46,14 @@ export async function create_component(
   return r;
 }
 
-export async function delete_component(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; component: any },
-) {
+export type DeleteComponentParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  component: ObjectIdString;
+};
+
+export async function delete_component(api: ObjectIdApi, params: DeleteComponentParams) {
   const { creditToken, controllerCap, object, component } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;

@@ -1,24 +1,27 @@
 import { Transaction } from "@iota/iota-sdk/transactions";
-import { signAndExecute } from "../utils/tx";
-import type { ObjectIdApi } from "../api";
-import { ensureTrailingSlashForOriginOnly } from "../utils/url";
 import { IOTA_CLOCK_OBJECT_ID } from "@iota/iota-sdk/utils";
 
-export async function create_object(
-  api: ObjectIdApi,
-  params: {
-    creditToken: any;
-    OIDcontrollerCap: any;
-    object_type: any;
-    product_url: any;
-    product_img_url: any;
-    description: any;
-    op_code: any;
-    immutable_metadata: any;
-    mutable_metadata: any;
-    geo_location: any;
-  },
-) {
+import type { ObjectIdApi } from "../api";
+import { asJsonString } from "../env";
+import { signAndExecute } from "../utils/tx";
+import { ensureTrailingSlashForOriginOnly } from "../utils/url";
+import type { JsonInput, ObjectIdString, UrlString } from "../types/types";
+
+export type CreateObjectParams = {
+  creditToken: ObjectIdString;
+  OIDcontrollerCap: ObjectIdString;
+  object_type: string;
+  product_url: UrlString;
+  product_img_url: UrlString;
+  description: string;
+  op_code: string;
+  immutable_metadata: JsonInput;
+  mutable_metadata: JsonInput;
+  /** Open Location Code (plus code) or other string accepted by the Move module */
+  geo_location: string;
+};
+
+export async function create_object(api: ObjectIdApi, params: CreateObjectParams) {
   const {
     creditToken,
     OIDcontrollerCap,
@@ -31,6 +34,7 @@ export async function create_object(
     mutable_metadata,
     geo_location,
   } = params;
+
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
@@ -47,14 +51,14 @@ export async function create_object(
       tx.object(creditToken),
       tx.object(env.policy),
       tx.object(OIDcontrollerCap),
-      tx.pure.string(object_type),
-      tx.pure.string(safeProductUrl),
-      tx.pure.string(product_img_url),
-      tx.pure.string(description),
-      tx.pure.string(op_code),
-      tx.pure.string(JSON.stringify(immutable_metadata)),
-      tx.pure.string(JSON.stringify(mutable_metadata)),
-      tx.pure.string(geo_location),
+      tx.pure.string(String(object_type ?? "")),
+      tx.pure.string(String(safeProductUrl ?? "")),
+      tx.pure.string(String(product_img_url ?? "")),
+      tx.pure.string(String(description ?? "")),
+      tx.pure.string(String(op_code ?? "")),
+      tx.pure.string(asJsonString(immutable_metadata)),
+      tx.pure.string(asJsonString(mutable_metadata)),
+      tx.pure.string(String(geo_location ?? "")),
       tx.object("0x6"),
     ],
     target: moveFunction,
@@ -63,18 +67,25 @@ export async function create_object(
   tx.setGasBudget(10_000_000);
   tx.setSender(env.sender);
 
-  const r = await signAndExecute(env.client, env.keyPair, tx, {
+  const r: any = await signAndExecute(env.client, env.keyPair, tx, {
     network: env.network,
     gasBudget,
     useGasStation: api.useGasStation,
     gasStation: api.gasStation,
     onExecuted: (api as any).onTxExecuted,
   });
-  if (r.success) r.createdObjectId = r.txEffect?.effects?.created?.[0]?.reference?.objectId;
+
+  if (r?.success) r.createdObjectId = r.txEffect?.effects?.created?.[0]?.reference?.objectId;
   return r;
 }
 
-export async function delete_object(api: ObjectIdApi, params: { creditToken: any; controllerCap: any; object: any }) {
+export type DeleteObjectParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+};
+
+export async function delete_object(api: ObjectIdApi, params: DeleteObjectParams) {
   const { creditToken, controllerCap, object } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -100,10 +111,14 @@ export async function delete_object(api: ObjectIdApi, params: { creditToken: any
   return r;
 }
 
-export async function update_agent_did(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_agent_did: any },
-) {
+export type UpdateAgentDidParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  new_agent_did: string;
+};
+
+export async function update_agent_did(api: ObjectIdApi, params: UpdateAgentDidParams) {
   const { creditToken, controllerCap, object, new_agent_did } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -117,7 +132,7 @@ export async function update_agent_did(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_agent_did),
+      tx.pure.string(String(new_agent_did ?? "")),
       tx.object("0x6"),
     ],
     target: moveFunction,
@@ -136,10 +151,14 @@ export async function update_agent_did(
   return r;
 }
 
-export async function update_geo_location(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_location: any },
-) {
+export type UpdateGeoLocationParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  new_location: string;
+};
+
+export async function update_geo_location(api: ObjectIdApi, params: UpdateGeoLocationParams) {
   const { creditToken, controllerCap, object, new_location } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -153,7 +172,7 @@ export async function update_geo_location(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_location),
+      tx.pure.string(String(new_location ?? "")),
       tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
@@ -172,10 +191,8 @@ export async function update_geo_location(
   return r;
 }
 
-export async function update_geolocation(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_location: any },
-) {
+// Back-compat alias (same Move target)
+export async function update_geolocation(api: ObjectIdApi, params: UpdateGeoLocationParams) {
   const { creditToken, controllerCap, object, new_location } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -189,7 +206,7 @@ export async function update_geolocation(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_location),
+      tx.pure.string(String(new_location ?? "")),
       tx.object("0x6"),
     ],
     target: moveFunction,
@@ -208,10 +225,15 @@ export async function update_geolocation(
   return r;
 }
 
-export async function update_object(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_product_img_url: any; new_description: any },
-) {
+export type UpdateObjectParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  new_product_img_url: UrlString;
+  new_description: string;
+};
+
+export async function update_object(api: ObjectIdApi, params: UpdateObjectParams) {
   const { creditToken, controllerCap, object, new_product_img_url, new_description } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -225,8 +247,8 @@ export async function update_object(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_product_img_url),
-      tx.pure.string(new_description),
+      tx.pure.string(String(new_product_img_url ?? "")),
+      tx.pure.string(String(new_description ?? "")),
       tx.object("0x6"),
     ],
     target: moveFunction,
@@ -245,10 +267,14 @@ export async function update_object(
   return r;
 }
 
-export async function update_object_did(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_object_did: any },
-) {
+export type UpdateObjectDidParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  new_object_did: string;
+};
+
+export async function update_object_did(api: ObjectIdApi, params: UpdateObjectDidParams) {
   const { creditToken, controllerCap, object, new_object_did } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -262,7 +288,7 @@ export async function update_object_did(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_object_did),
+      tx.pure.string(String(new_object_did ?? "")),
       tx.object("0x6"),
     ],
     target: moveFunction,
@@ -281,10 +307,14 @@ export async function update_object_did(
   return r;
 }
 
-export async function update_object_mutable_metadata(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_mutable_metadata: any },
-) {
+export type UpdateObjectMutableMetadataParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  new_mutable_metadata: JsonInput;
+};
+
+export async function update_object_mutable_metadata(api: ObjectIdApi, params: UpdateObjectMutableMetadataParams) {
   const { creditToken, controllerCap, object, new_mutable_metadata } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -298,7 +328,7 @@ export async function update_object_mutable_metadata(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_mutable_metadata),
+      tx.pure.string(asJsonString(new_mutable_metadata)),
       tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
@@ -317,10 +347,14 @@ export async function update_object_mutable_metadata(
   return r;
 }
 
-export async function update_op_code(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_op_code: any },
-) {
+export type UpdateOpCodeParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  new_op_code: string;
+};
+
+export async function update_op_code(api: ObjectIdApi, params: UpdateOpCodeParams) {
   const { creditToken, controllerCap, object, new_op_code } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -334,7 +368,7 @@ export async function update_op_code(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_op_code),
+      tx.pure.string(String(new_op_code ?? "")),
       tx.object("0x6"),
     ],
     target: moveFunction,
@@ -353,10 +387,14 @@ export async function update_op_code(
   return r;
 }
 
-export async function update_owner_did(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; new_owner_did: any },
-) {
+export type UpdateOwnerDidParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  new_owner_did: string;
+};
+
+export async function update_owner_did(api: ObjectIdApi, params: UpdateOwnerDidParams) {
   const { creditToken, controllerCap, object, new_owner_did } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -370,7 +408,7 @@ export async function update_owner_did(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(new_owner_did),
+      tx.pure.string(String(new_owner_did ?? "")),
       tx.object("0x6"),
     ],
     target: moveFunction,

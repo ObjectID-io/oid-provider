@@ -1,5 +1,23 @@
 import type { IotaTransactionBlockResponse, ExecutionStatus } from "@iota/iota-sdk/client";
 
+
+// Convenience scalar aliases (exported for consumers + IntelliSense)
+export type ObjectIdString = string;
+export type IotaAddressString = string;
+export type DidString = string;
+export type UrlString = string;
+
+// JSON handling
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [k: string]: JsonValue };
+/** Accept either a JSON string or a JSON value; SDK methods will serialize if needed. */
+export type JsonInput = string | JsonValue;
+
+// Integer inputs used by tx.pure.u64/u16/u8 etc.
+export type U64Input = bigint | number | string;
+export type U16Input = number;
+export type U8Input = number | boolean | string;
+
 // Network is intentionally a plain string.
 // The provider normalizes it internally (e.g. "iota"/"mainnet" -> "mainnet").
 

@@ -1,18 +1,20 @@
-import type { ObjectIdProviderConfig, TxExecResult, ObjectEdge } from "./types/types";
+import type { ObjectEdge, ObjectIdProviderConfig } from "./types/types";
 import { resolveEnv, type ResolvedEnv } from "./env";
 import { searchObjectsByType } from "./utils/graphql";
 import { getObject } from "./utils/getObject";
 import * as methods from "./methods";
 
-type MethodParams<K extends keyof typeof methods> = Parameters<(typeof methods)[K]>[1];
-type MethodReturn<K extends keyof typeof methods> = ReturnType<(typeof methods)[K]>;
+export type TxMethodName = keyof typeof methods;
+
+export type MethodParams<K extends TxMethodName> = Parameters<(typeof methods)[K]>[1];
+export type MethodReturn<K extends TxMethodName> = ReturnType<(typeof methods)[K]>;
 
 /**
  * All tx methods are defined in ./methods/* as (api, params) => ...
  * We expose them here as (params) => ... to keep IntelliSense param hints.
  */
-type TxMethods = {
-  [K in keyof typeof methods]: (params: MethodParams<K>) => MethodReturn<K>;
+export type TxMethods = {
+  [K in TxMethodName]: (params: MethodParams<K>) => MethodReturn<K>;
 };
 
 export type ObjectIdApi = {

@@ -1,13 +1,29 @@
+export type { ObjectIdProviderConfig, TxExecResult, ObjectEdge } from "./types/types";
+
+// Core API
+export type { ObjectIdApi, TxMethodName, TxMethods, MethodParams, MethodReturn } from "./api";
 export { createObjectIdApi } from "./api";
-export type { ObjectIdApi } from "./api";
-export * from "./types/types";
 
+// OID high-level wrapper
+export { createOid, type Oid, type OidSession, type ConnectParams, type Network } from "./oid";
+
+// React provider + hooks
+export { ObjectID, type ObjectIDProps, useObjectId, useOptionalObjectId, useObjectIDSession } from "./react";
+
+// On-chain config helpers/types
 export type { ConfigPackageIds, LoadedConfig } from "./onchain/config";
-export { loadEffectiveConfig, loadPublicConfig } from "./onchain/config";
+export {
+  loadPublicConfig,
+  loadConfigJsonByObjectId,
+  loadEffectiveConfig,
+  findUserConfigObjectId,
+  configType,
+  dlvcProxyUrl,
+} from "./onchain/config";
+export { DEFAULT_CONFIG_PACKAGE_IDS, DEFAULT_SHARED_CONFIG_OBJECT_ID, type CanonicalNetwork } from "./onchain/defaults";
 
-export { DEFAULT_CONFIG_PACKAGE_IDS } from "./onchain/defaults";
+// Tx methods + their exported Params types (for IntelliSense)
+export * from "./methods";
 
-export { DEFAULT_SHARED_CONFIG_OBJECT_ID } from "./onchain/defaults";
-
-export { createOid } from "./oid";
-export type { Oid, OidSession, ConnectParams, Network } from "./oid";
+// Utilities
+export { asJsonString } from "./env";

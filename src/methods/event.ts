@@ -1,19 +1,21 @@
 import { Transaction } from "@iota/iota-sdk/transactions";
-import { signAndExecute } from "../utils/tx";
-import type { ObjectIdApi } from "../api";
 import { IOTA_CLOCK_OBJECT_ID } from "@iota/iota-sdk/utils";
 
-export async function create_event(
-  api: ObjectIdApi,
-  params: {
-    creditToken: any;
-    controllerCap: any;
-    object: any;
-    event_type: any;
-    immutable_metadata: any;
-    mutable_metadata: any;
-  },
-) {
+import type { ObjectIdApi } from "../api";
+import { asJsonString } from "../env";
+import { signAndExecute } from "../utils/tx";
+import type { JsonInput, ObjectIdString } from "../types/types";
+
+export type CreateEventParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  event_type: string;
+  immutable_metadata: JsonInput;
+  mutable_metadata: JsonInput;
+};
+
+export async function create_event(api: ObjectIdApi, params: CreateEventParams) {
   const { creditToken, controllerCap, object, event_type, immutable_metadata, mutable_metadata } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -27,9 +29,9 @@ export async function create_event(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
-      tx.pure.string(event_type),
-      tx.pure.string(immutable_metadata),
-      tx.pure.string(mutable_metadata),
+      tx.pure.string(String(event_type ?? "")),
+      tx.pure.string(asJsonString(immutable_metadata)),
+      tx.pure.string(asJsonString(mutable_metadata)),
       tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
@@ -45,12 +47,18 @@ export async function create_event(
     gasStation: api.gasStation,
     onExecuted: (api as any).onTxExecuted,
   });
+
   return r;
 }
-export async function delete_event(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; event: any },
-) {
+
+export type DeleteEventParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  event: ObjectIdString;
+};
+
+export async function delete_event(api: ObjectIdApi, params: DeleteEventParams) {
   const { creditToken, controllerCap, object, event } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget ?? 10_000_000;
@@ -80,10 +88,8 @@ export async function delete_event(
     onExecuted: (api as any).onTxExecuted,
   });
 
-  console.log("[provider.delete_event] result:", r);
-
+  // Keep old behavior: throw on explicit failure
   const digest = String(r?.txDigest ?? r?.digest ?? r?.transactionDigest ?? "").trim();
-
   if (r?.success === false) {
     const detail = String(r?.error ?? r?.status?.error ?? r?.status?.errorMessage ?? "Transaction failed");
     const err: any = new Error(`${detail}${digest ? ` (tx ${digest})` : ""}`);
@@ -95,10 +101,14 @@ export async function delete_event(
   return r;
 }
 
-export async function update_event_mutable_metadata(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; event: any; new_mutable_metadata: any },
-) {
+export type UpdateEventMutableMetadataParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  event: ObjectIdString;
+  new_mutable_metadata: JsonInput;
+};
+
+export async function update_event_mutable_metadata(api: ObjectIdApi, params: UpdateEventMutableMetadataParams) {
   const { creditToken, controllerCap, event, new_mutable_metadata } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -112,7 +122,7 @@ export async function update_event_mutable_metadata(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(event),
-      tx.pure.string(new_mutable_metadata),
+      tx.pure.string(asJsonString(new_mutable_metadata)),
     ],
     target: moveFunction,
   });
@@ -127,5 +137,6 @@ export async function update_event_mutable_metadata(
     gasStation: api.gasStation,
     onExecuted: (api as any).onTxExecuted,
   });
+
   return r;
 }

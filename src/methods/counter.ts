@@ -1,20 +1,22 @@
 import { Transaction } from "@iota/iota-sdk/transactions";
-import { signAndExecute } from "../utils/tx";
-import type { ObjectIdApi } from "../api";
 
-export async function create_counter(
-  api: ObjectIdApi,
-  params: {
-    creditToken: any;
-    controllerCap: any;
-    object: any;
-    value: any;
-    unit: any;
-    step: any;
-    immutable_metadata: any;
-    mutable_metadata: any;
-  },
-) {
+import type { ObjectIdApi } from "../api";
+import { asJsonString } from "../env";
+import { signAndExecute } from "../utils/tx";
+import type { JsonInput, ObjectIdString, U64Input } from "../types/types";
+
+export type CreateCounterParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  value: U64Input;
+  unit: string;
+  step: U64Input;
+  immutable_metadata: JsonInput;
+  mutable_metadata: JsonInput;
+};
+
+export async function create_counter(api: ObjectIdApi, params: CreateCounterParams) {
   const { creditToken, controllerCap, object, value, unit, step, immutable_metadata, mutable_metadata } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -28,11 +30,11 @@ export async function create_counter(
       tx.object(env.policy),
       tx.object(controllerCap),
       tx.pure.address(object),
-      tx.pure.u64(value),
-      tx.pure.string(unit),
-      tx.pure.u64(step),
-      tx.pure.string(immutable_metadata),
-      tx.pure.string(mutable_metadata),
+      tx.pure.u64(value as any),
+      tx.pure.string(String(unit ?? "")),
+      tx.pure.u64(step as any),
+      tx.pure.string(asJsonString(immutable_metadata)),
+      tx.pure.string(asJsonString(mutable_metadata)),
     ],
     target: moveFunction,
   });
@@ -50,10 +52,14 @@ export async function create_counter(
   return r;
 }
 
-export async function delete_counter(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; counter: any },
-) {
+export type DeleteCounterParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  counter: ObjectIdString;
+};
+
+export async function delete_counter(api: ObjectIdApi, params: DeleteCounterParams) {
   const { creditToken, controllerCap, object, counter } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -85,10 +91,15 @@ export async function delete_counter(
   return r;
 }
 
-export async function counter_set_value(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; objectId: any; counter: any; new_value: any },
-) {
+export type CounterSetValueParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  objectId: ObjectIdString;
+  counter: ObjectIdString;
+  new_value: U64Input;
+};
+
+export async function counter_set_value(api: ObjectIdApi, params: CounterSetValueParams) {
   const { creditToken, controllerCap, objectId, counter, new_value } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -103,7 +114,7 @@ export async function counter_set_value(
       tx.object(controllerCap),
       tx.object(objectId),
       tx.object(counter),
-      tx.pure.u64(new_value),
+      tx.pure.u64(new_value as any),
     ],
     target: moveFunction,
   });
@@ -121,10 +132,14 @@ export async function counter_set_value(
   return r;
 }
 
-export async function counter_stepdown(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; objectId: any; counter: any },
-) {
+export type CounterStepParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  objectId: ObjectIdString;
+  counter: ObjectIdString;
+};
+
+export async function counter_stepdown(api: ObjectIdApi, params: CounterStepParams) {
   const { creditToken, controllerCap, objectId, counter } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
@@ -156,10 +171,14 @@ export async function counter_stepdown(
   return r;
 }
 
-export async function counter_stepup(
-  api: ObjectIdApi,
-  params: { creditToken: any; controllerCap: any; object: any; counter: any },
-) {
+export type CounterStepUpParams = {
+  creditToken: ObjectIdString;
+  controllerCap: ObjectIdString;
+  object: ObjectIdString;
+  counter: ObjectIdString;
+};
+
+export async function counter_stepup(api: ObjectIdApi, params: CounterStepUpParams) {
   const { creditToken, controllerCap, object, counter } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
