@@ -480,9 +480,8 @@ export function createOid(): Oid {
       const net = String(s.network).toLowerCase().trim();
       if (net !== "testnet") throw new Error("faucet is available only for an active testnet session");
 
-      // ✅ usa SEMPRE la config ufficiale corrente di rete
       const cfg: any = await sessionConfig(s.network);
-      s.configJson = cfg; // aggiorna snapshot sessione
+      s.configJson = cfg;
 
       const faucetURL = String(cfg.faucetURL).trim();
       if (!faucetURL) throw new Error("Missing faucetURL in config JSON");
@@ -497,10 +496,9 @@ export function createOid(): Oid {
       const response = await fetch(faucetURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ OIDcreditPackage, address }),
+        body: JSON.stringify({ packageId: OIDcreditPackage, address }),
       });
 
-      // il backend deve rispondere JSON (contenuto non necessario)
       try {
         await response.json();
       } catch {

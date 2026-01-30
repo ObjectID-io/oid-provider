@@ -7,7 +7,7 @@ export async function getObject(client: IotaClient, id: string) {
     id,
     options: {
       showType: true,
-      showOwner: false,
+      showOwner: true,
       showPreviousTransaction: false,
       showDisplay: true,
       showContent: true,
