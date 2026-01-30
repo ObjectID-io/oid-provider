@@ -26,7 +26,7 @@ export async function create_event(
       tx.object(creditToken),
       tx.object(env.policy),
       tx.object(controllerCap),
-      tx.pure.address(object),
+      tx.object(object),
       tx.pure.string(event_type),
       tx.pure.string(immutable_metadata),
       tx.pure.string(mutable_metadata),
