@@ -6,7 +6,7 @@ import type {
 } from "@iota/iota-sdk/client";
 import type { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
 import type { Transaction, ObjectRef } from "@iota/iota-sdk/transactions";
-import type { TxExecResult, gasStationCfg } from "./types/types";
+import type { TxExecResult, gasStationCfg } from "../types/types";
 
 /**
  * Browser-safe Uint8Array -> base64 encoding (no Buffer).
@@ -44,7 +44,7 @@ async function postJson<T>(url: string, token: string | undefined, body: any): P
 async function reserveGas(
   gasBudget: number,
   gasStationUrl: string,
-  gasStationToken: string
+  gasStationToken: string,
 ): Promise<ReserveGasResult> {
   const resp = await postJson<any>(`${gasStationUrl}/v1/reserve_gas`, gasStationToken, {
     gas_budget: gasBudget,
@@ -58,7 +58,7 @@ async function sponsorSignAndSubmit(
   txBytes: Uint8Array,
   userSig: string,
   gasStationUrl: string,
-  gasStationToken: string
+  gasStationToken: string,
 ): Promise<TransactionEffects> {
   const resp = await postJson<any>(`${gasStationUrl}/v1/execute_tx`, gasStationToken, {
     reservation_id: reservationId,
@@ -75,7 +75,7 @@ async function attemptWithGasStation(
   tx: Transaction,
   gasBudget: number,
   gasStationUrl: string,
-  gasStationToken: string
+  gasStationToken: string,
 ): Promise<TxExecResult> {
   const reserved = await reserveGas(gasBudget, gasStationUrl, gasStationToken);
 
@@ -93,7 +93,7 @@ async function attemptWithGasStation(
     unsignedTxBytes,
     userSig,
     gasStationUrl,
-    gasStationToken
+    gasStationToken,
   );
 
   const txEffect = {
@@ -132,7 +132,7 @@ export async function signAndExecute(
      * Useful to trigger credit refresh hints deterministically.
      */
     onExecuted?: (r: TxExecResult) => void;
-  }
+  },
 ): Promise<TxExecResult> {
   let res: TxExecResult = { success: false, error: new Error("Unknown error") };
 
@@ -151,7 +151,7 @@ export async function signAndExecute(
           tx,
           opts.gasBudget,
           gs.gasStation1URL,
-          gs.gasStation1Token
+          gs.gasStation1Token,
         );
       } catch (e1) {
         if (gs.gasStation2URL && gs.gasStation2Token) {
@@ -162,7 +162,7 @@ export async function signAndExecute(
             tx,
             opts.gasBudget,
             gs.gasStation2URL,
-            gs.gasStation2Token
+            gs.gasStation2Token,
           );
         } else {
           throw e1;

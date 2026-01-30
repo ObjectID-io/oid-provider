@@ -5,7 +5,7 @@ import { Transaction } from "@iota/iota-sdk/transactions";
 
 import type { ObjectIdApi } from "../api";
 import { createObjectIdApi } from "../api";
-import { signAndExecute } from "../tx";
+import { signAndExecute } from "../utils/tx";
 
 import type { ObjectIdProviderConfig, gasStationCfg } from "../types/types";
 import type { ConfigPackageIds, LoadedConfig } from "../onchain/config";

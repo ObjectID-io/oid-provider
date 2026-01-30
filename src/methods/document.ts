@@ -1,5 +1,5 @@
 import { Transaction } from "@iota/iota-sdk/transactions";
-import { signAndExecute } from "../tx";
+import { signAndExecute } from "../utils/tx";
 import { asJsonString } from "../env";
 import type { ObjectIdApi } from "../api";
 import { ensureTrailingSlashForOriginOnly } from "../utils/url";

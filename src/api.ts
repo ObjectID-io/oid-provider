@@ -1,6 +1,6 @@
 import type { ObjectIdProviderConfig, TxExecResult, ObjectEdge } from "./types/types";
 import { resolveEnv, type ResolvedEnv } from "./env";
-import { searchObjectsByType } from "./graphql";
+import { searchObjectsByType } from "./utils/graphql";
 import { getObject } from "./utils/getObject";
 import * as methods from "./methods";
 

@@ -1,5 +1,5 @@
 import { Transaction } from "@iota/iota-sdk/transactions";
-import { signAndExecute } from "../tx";
+import { signAndExecute } from "../utils/tx";
 import type { ObjectIdApi } from "../api";
 import { IOTA_CLOCK_OBJECT_ID } from "@iota/iota-sdk/utils";
 

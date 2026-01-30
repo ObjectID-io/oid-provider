@@ -7,7 +7,7 @@ import { loadPublicConfig, loadConfigJsonByObjectId, type LoadedConfig } from ".
 import { getObjectIdsByType, searchObjectsByTypeAndOwner } from "../onchain/getObjects";
 import type { ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "../types/types";
 import { getObject, getObject as getObjectRpc } from "../utils/getObject";
-import { signAndExecute } from "../tx";
+import { signAndExecute } from "../utils/tx";
 
 import { normalizeHex, pickCapMatchingDid } from "./caps";
 import { extractBalance } from "./credit";

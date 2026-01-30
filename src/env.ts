@@ -1,7 +1,7 @@
 import { getFullnodeUrl, IotaClient } from "@iota/iota-sdk/client";
 import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
 import type { ObjectIdProviderConfig } from "./types/types";
-import { searchObjectsByType } from "./graphql";
+import { searchObjectsByType } from "./utils/graphql";
 
 export type ResolvedEnv = {
   client: IotaClient;
