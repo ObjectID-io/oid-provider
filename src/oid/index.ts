@@ -507,76 +507,9 @@ export function createOid(): Oid {
 
       if (!response.ok) {
         return "❌ Failed to request free credits. You own credit!";
-      }
-
-      // ---- post-mint: refresh + join ----
-      const envAny: any = await api.env();
-      const client: IotaClient = envAny.client;
-
-      // prova a recuperare il signer/keyPair dalla env o dall'api, fallback: derive dal seed (se compatibile)
-      let keyPair: any =
-        envAny.keyPair ??
-        envAny.keypair ??
-        envAny.signer ??
-        (api as any)?.keyPair ??
-        (api as any)?.keypair ??
-        (api as any)?.signer;
-      if (!keyPair) {
-        try {
-          keyPair = Ed25519Keypair.deriveKeypairFromSeed(String(s.seed).trim());
-        } catch {
-          /* ignore */
-        }
-      }
-      if (!keyPair) throw new Error("Missing session signer/keyPair (cannot join credits)");
-
-      // attesa breve per visibilità oggetto on-chain
-      let tokens: string[] = [];
-      for (let i = 0; i < 4; i++) {
-        tokens = await refreshSessionCreditTokens(client, cfgAny);
-        if (tokens.length >= 2 || i === 3) break;
-        await sleep(600);
-      }
-
-      // se 0/1 token, emetti comunque un hint per refresh UI
-      if (tokens.length <= 1) {
-        emitCreditChanged({ success: true } as any);
+      } else {
         return "✅ 20 free credits have been minted to your address!";
       }
-
-      const creditTypeArg = getCreditTypeArgFromCfg(cfgAny);
-
-      // survivor: preferisci activeCreditToken se presente
-      const survivor = s.activeCreditToken && tokens.includes(s.activeCreditToken) ? s.activeCreditToken : tokens[0];
-      const others = tokens.filter((t) => t !== survivor);
-
-      const tx = new Transaction();
-      for (const otherId of others) {
-        tx.moveCall({
-          target: `0x2::token::join`,
-          typeArguments: [creditTypeArg],
-          arguments: [tx.object(survivor), tx.object(otherId)],
-        });
-      }
-
-      const gasBudget = Number(cfgAny?.gasBudget ?? 10_000_000);
-      tx.setGasBudget(gasBudget);
-      tx.setSender(address);
-
-      const r = await signAndExecute(client, keyPair, tx, {
-        network: String(s.network),
-        gasBudget,
-        useGasStation: !!cfgAny?.enableGasStation,
-        gasStation: cfgAny?.gasStation,
-        onExecuted: (res) => emitCreditChanged(res),
-      });
-
-      // refresh finale (dopo join)
-      await refreshSessionCreditTokens(client, cfgAny);
-
-      if (r.success) return "✅ 20 free credits have been minted to your address! (joined)";
-      console.error("join credits failed:", r.error);
-      return "✅ 20 free credits have been minted to your address! (join failed)";
     },
     officialPackages,
     session: sessionObj,
