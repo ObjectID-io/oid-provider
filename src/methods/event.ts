@@ -5,6 +5,8 @@ import type { ObjectIdApi } from "../api";
 import { asJsonString } from "../env";
 import { signAndExecute } from "../utils/tx";
 import type { JsonInput, ObjectIdString } from "../types/types";
+import { getObject } from "../utils/getObject";
+import { IotaObjectData } from "@iota/iota-sdk/client";
 
 export type CreateEventParams = {
   creditToken: ObjectIdString;
@@ -111,23 +113,35 @@ export type UpdateEventMutableMetadataParams = {
 export async function update_event_mutable_metadata(api: ObjectIdApi, params: UpdateEventMutableMetadataParams) {
   const { creditToken, controllerCap, event, new_mutable_metadata } = params;
   const env = await api.env();
-  const gasBudget = api.gasBudget;
+  const gasBudget = api.gasBudget ?? 10_000_000;
+
+  const objectData = (await getObject(env.client, event)) as IotaObjectData;
+
+  const owner = objectData?.owner ?? (objectData as any)?.data?.owner ?? null;
+
+  const eventOwner =
+    (typeof owner?.ObjectOwner === "string"
+      ? owner.ObjectOwner
+      : (owner?.ObjectOwner?.objectId ?? owner?.ObjectOwner?.id)) ??
+    owner?.AddressOwner ??
+    null;
 
   const tx = new Transaction();
   const moveFunction = env.packageID + "::oid_object::update_event_mutable_metadata";
 
   tx.moveCall({
+    target: moveFunction,
     arguments: [
       tx.object(creditToken),
       tx.object(env.policy),
       tx.object(controllerCap),
+      tx.object(eventOwner),
       tx.object(event),
       tx.pure.string(asJsonString(new_mutable_metadata)),
     ],
-    target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
