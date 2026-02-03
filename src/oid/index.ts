@@ -97,6 +97,14 @@ export type Oid = ObjectIdApi & {
   /** Read ONLY the official allow-list from on-chain public config. Works without session. */
   officialPackages: (network?: string) => Promise<string[]>;
 
+  /**
+   * TokenPolicy object id required by Move calls.
+   * Alias for: `(await oid.env()).policy`.
+   *
+   * Requires an active session (connect).
+   */
+  readonly policyToken: Promise<string>;
+
   /** Session accessors */
   session: {
     readonly network: Network;
@@ -512,6 +520,10 @@ export function createOid(): Oid {
       }
     },
     officialPackages,
+    get policyToken() {
+      const { api } = ensureSession();
+      return api.env().then((e) => e.policy);
+    },
     session: sessionObj,
 
     // uninitialized-safe methods
