@@ -142,8 +142,10 @@ export type Oid = ObjectIdApi & {
 
     /**
      * Read-only.
-     * - If session is active: returns the config in use.
-     * - If no session: returns the pinned public default config for the indicated network (default: testnet).
+     * - If NO session: returns pinned public default config for requested network (default: testnet).
+     * - If session is active:
+     *    - config() or config(session.network) => returns session config in use
+     *    - config(other network) => returns pinned public default config for that network
      */
     config: (network?: string) => Promise<Record<string, any>>;
 
@@ -331,7 +333,7 @@ export function createOid(): Oid {
     };
   };
 
-  // --- NEW API: setSession(configJSON) ---
+  // --- API: setSession(configJSON) ---
   const setSession: Oid["setSession"] = async (configJSON: Record<string, any>) => {
     const { s: cur } = ensureSession();
 
@@ -344,11 +346,22 @@ export function createOid(): Oid {
     await applyConfigJsonForSession(cur.did, cur.seed, cur.seedPath, net, configJSON);
   };
 
-  // --- Read-only session.config(network?) ---
+  // --- Read-only session.config(network?) with requested semantics ---
   const sessionConfig: Oid["session"]["config"] = async (network?: string) => {
-    if (s?.initialized) return s.configJson;
+    const requestedNet = normalizeNetworkLoose(network ?? s?.network ?? "testnet");
 
-    const { json } = await loadDefaultPublicConfigJson(network ?? "testnet");
+    // session attiva:
+    // - config() o config(session.network) => config di sessione
+    // - config(other) => default pubblico dell'altra rete
+    if (s?.initialized) {
+      const sessionNet = normalizeNetworkLoose(String(s.network ?? "testnet"));
+      if (!network || requestedNet === sessionNet) return s.configJson;
+      const { json } = await loadDefaultPublicConfigJson(requestedNet);
+      return json;
+    }
+
+    // no session => default pubblico della rete richiesta
+    const { json } = await loadDefaultPublicConfigJson(requestedNet);
     return json;
   };
 
@@ -428,7 +441,7 @@ export function createOid(): Oid {
     setSession,
 
     async faucet() {
-      const { api, s } = ensureSession();
+      const { s } = ensureSession();
 
       const net = String(s.network).toLowerCase().trim();
       if (net !== "testnet") throw new Error("faucet is available only for an active testnet session");
