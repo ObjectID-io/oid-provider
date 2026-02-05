@@ -8,7 +8,6 @@ export type CreateComponentParams = {
   creditToken: ObjectIdString;
   controllerCap: ObjectIdString;
   object: ObjectIdString;
-  /** IOTA address (component id) */
   component_id: IotaAddressString;
   description: string;
 };
