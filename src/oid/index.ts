@@ -1,13 +1,10 @@
 import { getFullnodeUrl, IotaClient, type IotaObjectData } from "@iota/iota-sdk/client";
-import { Transaction } from "@iota/iota-sdk/transactions";
-import { Ed25519Keypair } from "@iota/iota-sdk/keypairs/ed25519";
 
 import { createObjectIdApi, type ObjectIdApi } from "../api";
-import { loadPublicConfig, loadConfigJsonByObjectId, type LoadedConfig } from "../onchain/config";
-import { getObjectIdsByType, searchObjectsByTypeAndOwner } from "../onchain/getObjects";
+import { loadPublicConfig, type LoadedConfig } from "../onchain/config";
+import { getObjectIdsByType } from "../onchain/getObjects";
 import type { ObjectIdProviderConfig, ObjectEdge, TxExecResult } from "../types/types";
 import { getObject, getObject as getObjectRpc } from "../utils/getObject";
-import { signAndExecute } from "../utils/tx";
 
 import { normalizeHex, pickCapMatchingDid } from "./caps";
 import { extractBalance } from "./credit";
@@ -16,7 +13,7 @@ import { getOwnedObjectIdsByType } from "./ownedObjects";
 
 /**
  * Session state exposed by the high-level OID wrapper.
- * Values are resolved in `oid.connect(...)`.
+ * Values are resolved in `oid.connect(...)` and can be changed via `oid.setSession(...)`.
  */
 export type Network = "testnet" | "mainnet" | (string & {});
 
@@ -51,28 +48,43 @@ export type OidSession = {
 export type ConnectParams = {
   did: string;
   seed: string;
+  /**
+   * Used ONLY to choose which chain to read the pinned public config from when bootstrapping.
+   * The session network is still derived from configJSON.network (see setSession).
+   */
   network?: Network;
   seedPath?: string;
 };
-
-type CustomConfigArg = Record<string, any> | { json: Record<string, any> } | { objectId: string } | string; // shorthand: objectId
 
 function notInitialized(): never {
   throw new Error("not initialized");
 }
 
-function normalizeNetwork(network?: string): Network {
+/** Loose network normalization (for selecting a chain to READ public config from). */
+function normalizeNetworkLoose(network?: string): "testnet" | "mainnet" {
   const n = String(network ?? "")
     .toLowerCase()
     .trim();
   if (n === "mainnet" || n === "iota") return "mainnet";
-  return (n || "testnet") as Network;
+  return "testnet";
 }
 
-function mergeConfig(official: Record<string, any>, custom?: Record<string, any> | null) {
-  if (!custom) return official;
-  // shallow override (intenzionale, semplice)
-  return { ...official, ...custom };
+/** Strict network read (for setting session network from config JSON). */
+function readNetworkFromConfigJson(cfg: any): "testnet" | "mainnet" {
+  const n = String(cfg?.network ?? "")
+    .toLowerCase()
+    .trim();
+  if (n === "mainnet" || n === "iota") return "mainnet";
+  if (n === "testnet") return "testnet";
+  throw new Error("configJSON.network must be 'testnet' or 'mainnet'");
+}
+
+function tryReadNetworkFromConfigJson(cfg: any): "testnet" | "mainnet" | null {
+  try {
+    return readNetworkFromConfigJson(cfg);
+  } catch {
+    return null;
+  }
 }
 
 function extractOfficialPackages(json: Record<string, any>): string[] {
@@ -80,7 +92,6 @@ function extractOfficialPackages(json: Record<string, any>): string[] {
     (json as any)?.officialPackages ?? (json as any)?.official_packages ?? (json as any)?.official_packages_ids ?? [];
   const arr = Array.isArray(raw) ? raw : [];
   const out = arr.map((x) => normalizeHex(String(x ?? "").trim())).filter((x) => !!x);
-  // unique
   return Array.from(new Set(out));
 }
 
@@ -90,6 +101,12 @@ export type Oid = ObjectIdApi & {
 
   /** Init session (tx signing). */
   connect: (p: ConnectParams) => Promise<void>;
+
+  /**
+   * Set the *effective* runtime configuration for the current session.
+   * The session network is derived from configJSON.network.
+   */
+  setSession: (configJSON: Record<string, any>) => Promise<void>;
 
   /** Request free credits (testnet only; requires an active session). */
   faucet: () => Promise<string>;
@@ -101,7 +118,7 @@ export type Oid = ObjectIdApi & {
    * TokenPolicy object id required by Move calls.
    * Alias for: `(await oid.env()).policy`.
    *
-   * Requires an active session (connect).
+   * Requires an active session (connect + setSession already applied by connect).
    */
   readonly policyToken: Promise<string>;
 
@@ -124,15 +141,11 @@ export type Oid = ObjectIdApi & {
     onCreditChanged: (cb: (r: TxExecResult) => void) => () => void;
 
     /**
-     * Loads OFFICIAL on-chain config for a network and optionally merges a custom override.
-     * Works even WITHOUT session.
-     *
-     * - session.config() -> official config for (session.network if connected else "testnet")
-     * - session.config("testnet") -> official config testnet
-     * - session.config("testnet", { ...override }) -> official + override
-     * - session.config("testnet", { objectId }) / session.config("testnet", "0x...") -> official + json loaded by objectId
+     * Read-only.
+     * - If session is active: returns the config in use.
+     * - If no session: returns the pinned public default config for the indicated network (default: testnet).
      */
-    config: (network?: string, custom?: CustomConfigArg) => Promise<Record<string, any>>;
+    config: (network?: string) => Promise<Record<string, any>>;
 
     /** Session snapshot (requires connect). */
     raw: () => OidSession;
@@ -143,47 +156,6 @@ export type Oid = ObjectIdApi & {
   getObjectsByType: (type: string, network: string) => Promise<ObjectEdge[]>;
   getObjectsByTypeAndOwner: (type: string, owner: string, network: string) => Promise<ObjectEdge[]>;
 };
-
-function didToIdentityId(did: string): string {
-  const s = String(did ?? "").trim();
-  if (!s) return "";
-  const parts = s.split(":");
-  const last = String(parts[parts.length - 1] ?? "").trim();
-  if (!last) return "";
-  if (!/^(0x)?[0-9a-fA-F]+$/.test(last)) return "";
-  return normalizeHex(last);
-}
-
-function getMoveFieldsFromEdge(edge: any): any {
-  const data = edge?.node?.asMoveObject?.contents?.data;
-  if (!data) return null;
-  if (typeof data === "string") {
-    try {
-      return JSON.parse(data);
-    } catch {
-      return null;
-    }
-  }
-  if (typeof data === "object") return data;
-  return null;
-}
-
-function extractControllerOf(fields: any): string {
-  if (!fields || typeof fields !== "object") return "";
-  const direct = (fields as any).controller_of ?? (fields as any)?.fields?.controller_of;
-  const nested = (fields as any)?.access_token?.fields?.value?.fields?.controller_of;
-  return normalizeHex(String(direct ?? nested ?? "").trim());
-}
-
-function pickStringByNetwork(value: any, network: string): string {
-  if (typeof value === "string") return value.trim();
-  if (value && typeof value === "object") {
-    const v: any = value;
-    const pick = v[network] ?? v[String(network).toLowerCase()] ?? v.testnet ?? v.mainnet;
-    if (typeof pick === "string") return pick.trim();
-  }
-  return "";
-}
 
 export function createOid(): Oid {
   let api: ObjectIdApi | null = null;
@@ -206,65 +178,18 @@ export function createOid(): Oid {
     return { api, s };
   };
 
-  const loadOfficialConfig = async (network?: string) => {
-    const net = normalizeNetwork(network);
+  const loadDefaultPublicConfigJson = async (network?: string) => {
+    const net = normalizeNetworkLoose(network ?? "testnet");
     const loaded = await loadPublicConfig(net as any);
     return { net, loaded, json: (loaded.json ?? {}) as Record<string, any> };
   };
 
-  const resolveCustomConfig = async (net: string, custom?: CustomConfigArg): Promise<Record<string, any> | null> => {
-    if (!custom) return null;
-
-    // shorthand objectId string
-    if (typeof custom === "string") {
-      const objectId = custom.trim();
-      if (!objectId) return null;
-      return await loadConfigJsonByObjectId(net as any, objectId);
-    }
-
-    if (typeof custom === "object" && custom !== null && !Array.isArray(custom)) {
-      if (typeof (custom as any).objectId === "string") {
-        const objectId = String((custom as any).objectId).trim();
-        if (!objectId) return null;
-        return await loadConfigJsonByObjectId(net as any, objectId);
-      }
-      if (Object.prototype.hasOwnProperty.call(custom, "json")) {
-        return ((custom as any).json ?? {}) as Record<string, any>;
-      }
-      // raw override json
-      return custom as Record<string, any>;
-    }
-
-    return null;
-  };
-
-  const sessionConfig: Oid["session"]["config"] = async (network?: string, custom?: CustomConfigArg) => {
-    // default network: session.network if connected else "testnet"
-    const net = normalizeNetwork(network ?? s?.network ?? "testnet");
-
-    const { loaded, json: officialJson } = await loadOfficialConfig(net);
-    const customJson = await resolveCustomConfig(net, custom);
-
-    // merge official + custom (override)
-    const merged = mergeConfig(officialJson, customJson);
-
-    // optional: attach loaded metadata if you want to debug (non breaking)
-    (merged as any).__source = "official";
-    (merged as any).__officialObjectId = loaded.objectId;
-
-    if (customJson) (merged as any).__custom = true;
-
-    return merged;
-  };
-
   const officialPackages: Oid["officialPackages"] = async (network?: string) => {
-    const { json } = await loadOfficialConfig(network);
+    const { json } = await loadDefaultPublicConfigJson(network);
     return extractOfficialPackages(json);
   };
 
   // ---- helpers: credit token type + refresh ----
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
   const getCreditTypeArgFromCfg = (cfgAny: any) => {
     const pkg = normalizeHex(String(cfgAny?.OIDcreditPackage ?? cfgAny?.oidCreditPackage ?? "").trim());
     if (!pkg) throw new Error("Missing OIDcreditPackage in config JSON");
@@ -328,10 +253,9 @@ export function createOid(): Oid {
     if (!identityControllerCap) throw new Error("IOTA Identity ControllerCap not found for the provided DID");
 
     // OID Identity ControllerCap is OPTIONAL.
-    // If missing, the user is still connected, but cannot create new objects/documents.
     const didId = (() => {
-      const s = String(did ?? "").trim();
-      const last = s.split(":").pop() ?? "";
+      const ss = String(did ?? "").trim();
+      const last = ss.split(":").pop() ?? "";
       const ok = last && /^(0x)?[0-9a-fA-F]+$/.test(last);
       return ok ? normalizeHex(last) : "";
     })();
@@ -339,7 +263,7 @@ export function createOid(): Oid {
     let oidControllerCap: string | undefined;
     let identityIsLinked = false;
 
-    // ✅ RPC-only: scan owned ControllerCap objects and match fields.controller_of == didId
+    // RPC-only: scan owned ControllerCap objects and match fields.controller_of == didId
     if (didId) {
       try {
         const oidCapIds = await getObjectIdsByType(client, address, oidCapType);
@@ -350,7 +274,6 @@ export function createOid(): Oid {
           const obj: any = await getObject(client, id);
           if (!obj) continue;
 
-          // RPC shape: obj.content.fields.controller_of
           const fields =
             (obj as any)?.content?.fields ??
             (obj as any)?.content?.data?.fields ??
@@ -383,7 +306,6 @@ export function createOid(): Oid {
       }
     }
 
-    // credit token type MUST come from cfg OIDcreditPackage (not env.packageID)
     const creditTokenType = getCreditTokenStructTypeFromCfg(cfgAny);
     const creditTokens = await getOwnedObjectIdsByType(client, address, creditTokenType);
 
@@ -409,6 +331,27 @@ export function createOid(): Oid {
     };
   };
 
+  // --- NEW API: setSession(configJSON) ---
+  const setSession: Oid["setSession"] = async (configJSON: Record<string, any>) => {
+    const { s: cur } = ensureSession();
+
+    if (!configJSON || typeof configJSON !== "object" || Array.isArray(configJSON)) {
+      throw new Error("configJSON must be an object");
+    }
+
+    const net = readNetworkFromConfigJson(configJSON);
+
+    await applyConfigJsonForSession(cur.did, cur.seed, cur.seedPath, net, configJSON);
+  };
+
+  // --- Read-only session.config(network?) ---
+  const sessionConfig: Oid["session"]["config"] = async (network?: string) => {
+    if (s?.initialized) return s.configJson;
+
+    const { json } = await loadDefaultPublicConfigJson(network ?? "testnet");
+    return json;
+  };
+
   const connect: Oid["connect"] = async (p: ConnectParams) => {
     const did = String(p?.did ?? "").trim();
     const seed = String(p?.seed ?? "").trim();
@@ -416,10 +359,11 @@ export function createOid(): Oid {
     if (!did) throw new Error("DID is required.");
     if (!seed) throw new Error("Seed is required.");
 
-    const net = normalizeNetwork(p.network ?? "testnet");
+    // Bootstrapping: read pinned public config from the selected chain.
+    const { loaded, json } = await loadDefaultPublicConfigJson(p.network);
 
-    // OFFICIAL config onchain for this network (no seed needed)
-    const { loaded, json } = await loadOfficialConfig(net);
+    // Session network is derived from json.network (strict if present; fallback to the chain used to read public config).
+    const net = tryReadNetworkFromConfigJson(json) ?? normalizeNetworkLoose(p.network);
 
     await applyConfigJsonForSession(did, seed, seedPath, net, json, loaded.objectId, loaded);
   };
@@ -427,7 +371,6 @@ export function createOid(): Oid {
   const disconnect: Oid["disconnect"] = () => {
     api = null;
     s = null;
-    // NB: non tocchiamo nulla che riguarda letture pubbliche
   };
 
   const sessionObj: Oid["session"] = {
@@ -482,20 +425,19 @@ export function createOid(): Oid {
   const base: any = {
     connect,
     disconnect,
+    setSession,
+
     async faucet() {
       const { api, s } = ensureSession();
 
       const net = String(s.network).toLowerCase().trim();
       if (net !== "testnet") throw new Error("faucet is available only for an active testnet session");
 
-      const cfg: any = await sessionConfig(s.network);
-      s.configJson = cfg;
-
+      const cfg: any = await sessionConfig();
       const faucetURL = String(cfg.faucetURL).trim();
       if (!faucetURL) throw new Error("Missing faucetURL in config JSON");
 
       const cfgAny = cfg as any;
-
       const OIDcreditPackage = normalizeHex(String(cfgAny.OIDcreditPackage ?? "").trim());
       if (!OIDcreditPackage) throw new Error("Missing OIDcreditPackage in config JSON");
 
@@ -519,11 +461,14 @@ export function createOid(): Oid {
         return "✅ 20 free credits have been minted to your address!";
       }
     },
+
     officialPackages,
+
     get policyToken() {
       const { api } = ensureSession();
       return api.env().then((e) => e.policy);
     },
+
     session: sessionObj,
 
     // uninitialized-safe methods
@@ -536,14 +481,14 @@ export function createOid(): Oid {
     async getObjectsByType(type: string, network: string) {
       const cfg = await sessionConfig(network);
       const graphqlProvider = String((cfg as any)?.graphqlProvider ?? "").trim();
-      if (!graphqlProvider) throw new Error("graphqlProvider not found in official config");
+      if (!graphqlProvider) throw new Error("graphqlProvider not found in public config");
       return await graphqlAllByType(graphqlProvider, type);
     },
 
     async getObjectsByTypeAndOwner(type: string, owner: string, network: string) {
       const cfg = await sessionConfig(network);
       const graphqlProvider = String((cfg as any)?.graphqlProvider ?? "").trim();
-      if (!graphqlProvider) throw new Error("graphqlProvider not found in official config");
+      if (!graphqlProvider) throw new Error("graphqlProvider not found in public config");
       return await graphqlAllByTypeAndOwner(graphqlProvider, type, owner);
     },
   };
@@ -568,7 +513,6 @@ export function createOid(): Oid {
             return v.call(api, params);
           };
         }
-
         return typeof v === "function" ? v.bind(api) : v;
       }
 
