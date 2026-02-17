@@ -1,5 +1,5 @@
 {
-  "name": "@objectid/objectid-provider",
+  "name": "@objectid-io/oid-provider",
   "version": "1.0.0",
   "description": "Client-side ObjectID Provider SDK: executes Move calls directly (no backend).",
   "license": "MIT",
@@ -49,6 +49,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/objectid/<REPO>.git"
+    "url": "https://github.com/ObjectID-io/oid-provider.git"
   }
 }
