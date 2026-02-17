@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@iota/iota-sdk": "^1.0.0",
+    "@objectid-io/oid-provider": "^1.0.1",
     "axios": "^1.13.2",
     "open-location-code-typescript": "^1.5.0"
   },
