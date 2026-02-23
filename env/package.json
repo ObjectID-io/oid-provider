@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "main": "../dist-cjs/env.js",
+  "module": "../dist/env.js",
+  "types": "../dist/env.d.ts"
+}

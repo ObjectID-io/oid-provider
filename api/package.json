@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "main": "../dist-cjs/api.js",
+  "module": "../dist/api.js",
+  "types": "../dist/api.d.ts"
+}

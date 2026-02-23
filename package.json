@@ -1,6 +1,6 @@
 {
   "name": "@objectid/oid-provider",
-  "version": "1.0.7",
+  "version": "1.0.10",
   "description": "Client-side ObjectID Provider SDK: executes Move calls directly (no backend).",
   "license": "MIT",
   "type": "module",
@@ -17,12 +17,42 @@
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js",
       "require": "./dist-cjs/react/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js",
+      "require": "./dist-cjs/core.js"
+    },
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "import": "./dist/api.js",
+      "require": "./dist-cjs/api.js"
+    },
+    "./methods": {
+      "types": "./dist/methods.d.ts",
+      "import": "./dist/methods.js",
+      "require": "./dist-cjs/methods.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "import": "./dist/env.js",
+      "require": "./dist-cjs/env.js"
+    },
+    "./oid": {
+      "types": "./dist/oid/index.d.ts",
+      "import": "./dist/oid/index.js",
+      "require": "./dist-cjs/oid/index.js"
     }
   },
   "files": [
+    "README.md",
+    "api",
+    "core",
     "dist",
     "dist-cjs",
-    "README.md"
+    "env",
+    "methods",
+    "oid"
   ],
   "sideEffects": false,
   "scripts": {
@@ -56,5 +86,24 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ObjectID-io/oid-provider.git"
+  },
+  "typesVersions": {
+    "*": {
+      "core": [
+        "dist/core.d.ts"
+      ],
+      "api": [
+        "dist/api.d.ts"
+      ],
+      "methods": [
+        "dist/methods.d.ts"
+      ],
+      "env": [
+        "dist/env.d.ts"
+      ],
+      "oid": [
+        "dist/oid/index.d.ts"
+      ]
+    }
   }
 }

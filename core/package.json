@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "main": "../dist-cjs/core.js",
+  "module": "../dist/core.js",
+  "types": "../dist/core.d.ts"
+}

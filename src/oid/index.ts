@@ -163,6 +163,11 @@ export function createOid(): Oid {
   let api: ObjectIdApi | null = null;
   let s: OidSession | null = null;
 
+  // ---- NEW: connect-in-progress guard (non-breaking) ----
+  // If connect() is running, allow tx calls to wait instead of throwing "not initialized".
+  let initP: Promise<void> | null = null;
+  const WAITABLE_PROPS = new Set(["create_object", "create_document", "create_event"]);
+
   // Credit change listeners
   const creditListeners = new Set<(r: TxExecResult) => void>();
   const emitCreditChanged = (r: TxExecResult) => {
@@ -335,6 +340,9 @@ export function createOid(): Oid {
 
   // --- API: setSession(configJSON) ---
   const setSession: Oid["setSession"] = async (configJSON: Record<string, any>) => {
+    // NEW: if connect is running, wait it
+    if (initP) await initP;
+
     const { s: cur } = ensureSession();
 
     if (!configJSON || typeof configJSON !== "object" || Array.isArray(configJSON)) {
@@ -366,24 +374,37 @@ export function createOid(): Oid {
   };
 
   const connect: Oid["connect"] = async (p: ConnectParams) => {
-    const did = String(p?.did ?? "").trim();
-    const seed = String(p?.seed ?? "").trim();
-    const seedPath = String(p?.seedPath ?? "").trim() || undefined;
-    if (!did) throw new Error("DID is required.");
-    if (!seed) throw new Error("Seed is required.");
+    // NEW: serialize connect calls; if a connect is already in progress, wait it
+    if (initP) await initP;
 
-    // Bootstrapping: read pinned public config from the selected chain.
-    const { loaded, json } = await loadDefaultPublicConfigJson(p.network);
+    const task = (async () => {
+      const did = String(p?.did ?? "").trim();
+      const seed = String(p?.seed ?? "").trim();
+      const seedPath = String(p?.seedPath ?? "").trim() || undefined;
+      if (!did) throw new Error("DID is required.");
+      if (!seed) throw new Error("Seed is required.");
 
-    // Session network is derived from json.network (strict if present; fallback to the chain used to read public config).
-    const net = tryReadNetworkFromConfigJson(json) ?? normalizeNetworkLoose(p.network);
+      // Bootstrapping: read pinned public config from the selected chain.
+      const { loaded, json } = await loadDefaultPublicConfigJson(p.network);
 
-    await applyConfigJsonForSession(did, seed, seedPath, net, json, loaded.objectId, loaded);
+      // Session network is derived from json.network (strict if present; fallback to the chain used to read public config).
+      const net = tryReadNetworkFromConfigJson(json) ?? normalizeNetworkLoose(p.network);
+
+      await applyConfigJsonForSession(did, seed, seedPath, net, json, loaded.objectId, loaded);
+    })();
+
+    initP = task;
+    try {
+      await task;
+    } finally {
+      if (initP === task) initP = null;
+    }
   };
 
   const disconnect: Oid["disconnect"] = () => {
     api = null;
     s = null;
+    initP = null; // NEW
   };
 
   const sessionObj: Oid["session"] = {
@@ -517,6 +538,22 @@ export function createOid(): Oid {
           address: s?.address,
         });
 
+      // If connect() is in progress, let known tx calls wait (non-breaking).
+      if (typeof prop === "string" && initP && WAITABLE_PROPS.has(prop)) {
+        return async (params: any) => {
+          await initP; // propagate connect error if it failed
+          const { api, s } = ensureSession();
+          const v = (api as any)[prop];
+          if (typeof v !== "function") throw new Error(`Method '${prop}' not available on ObjectIdApi`);
+          if ((prop === "create_object" || prop === "create_document") && !s.identityIsLinked) {
+            throw new Error("function not allowed");
+          }
+          return v.call(api, params);
+        };
+      }
+
+      // If api exists, return the api method/value.
+      // NOTE: keep original behavior for create_object/create_document gating.
       if (api && (api as any)[prop] !== undefined) {
         const v = (api as any)[prop];
         if (typeof v === "function" && (prop === "create_object" || prop === "create_document")) {
@@ -527,6 +564,24 @@ export function createOid(): Oid {
           };
         }
         return typeof v === "function" ? v.bind(api) : v;
+      }
+
+      // ---- NEW: avoid stale function references ----
+      // Previously: return () => notInitialized();
+      // Now: return a function that re-checks current api at call time.
+      if (typeof prop === "string") {
+        return (params: any) => {
+          if (api && (api as any)[prop] !== undefined) {
+            const v = (api as any)[prop];
+            if (typeof v !== "function") return v;
+            // preserve gating semantics
+            if ((prop === "create_object" || prop === "create_document") && s?.initialized) {
+              if (!s.identityIsLinked) throw new Error("function not allowed");
+            }
+            return v.call(api, params);
+          }
+          return notInitialized();
+        };
       }
 
       return () => notInitialized();

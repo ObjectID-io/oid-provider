@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "main": "../dist-cjs/oid/index.js",
+  "module": "../dist/oid/index.js",
+  "types": "../dist/oid/index.d.ts"
+}

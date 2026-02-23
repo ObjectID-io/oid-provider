@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "main": "../dist-cjs/methods.js",
+  "module": "../dist/methods.js",
+  "types": "../dist/methods.d.ts"
+}
