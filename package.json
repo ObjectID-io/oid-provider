@@ -1,6 +1,6 @@
 {
   "name": "@objectid/oid-provider",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Client-side ObjectID Provider SDK: executes Move calls directly (no backend).",
   "license": "MIT",
   "type": "module",
@@ -44,7 +44,6 @@
   },
   "dependencies": {
     "@iota/iota-sdk": "^1.0.0",
-    "@objectid-io/oid-provider": "^1.0.1",
     "axios": "^1.13.2",
     "open-location-code-typescript": "^1.5.0"
   },
