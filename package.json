@@ -1,5 +1,5 @@
 {
-  "name": "@objectid-io/oid-provider",
+  "name": "@objectid/oid-provider",
   "version": "1.0.6",
   "description": "Client-side ObjectID Provider SDK: executes Move calls directly (no backend).",
   "license": "MIT",
@@ -30,7 +30,8 @@
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "peerDependencies": {
     "@iota/identity-wasm": "^1.8.0-beta.2",
@@ -55,6 +56,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ObjectID-io/oid-provider.git"
+    "url": "git+https://github.com/ObjectID-io/oid-provider.git"
   }
 }
