@@ -30,7 +30,11 @@ export type ObjectIdApi = {
 } & TxMethods;
 
 function normalizeGasBudget(value: unknown): number {
-  const n = typeof value === "number" ? value : Number(value);
+  const normalized =
+    typeof value === "string"
+      ? value.trim().replace(/[_\s,]/g, "")
+      : value;
+  const n = typeof normalized === "number" ? normalized : Number(normalized);
   if (Number.isFinite(n) && n > 0) return Math.floor(n);
   return 10_000_000;
 }

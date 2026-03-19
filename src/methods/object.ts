@@ -37,6 +37,7 @@ export async function create_object(api: ObjectIdApi, params: CreateObjectParams
 
   const env = await api.env();
   const gasBudget = api.gasBudget;
+  console.log("gas budget", gasBudget);
 
   // IMPORTANT: Move checks prefixes using std::string::substring with the on-chain linked_domain length.
   // If the client passes a bare URL origin like "https://example.com" while linked_domain is stored as
@@ -89,6 +90,8 @@ export async function delete_object(api: ObjectIdApi, params: DeleteObjectParams
   const { creditToken, controllerCap, object } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
+
+  console.log("gas budget", gasBudget);
 
   const tx = new Transaction();
   const moveFunction = env.packageID + "::oid_object::delete_object";
@@ -426,4 +429,3 @@ export async function update_owner_did(api: ObjectIdApi, params: UpdateOwnerDidP
   });
   return r;
 }
-

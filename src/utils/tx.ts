@@ -46,6 +46,7 @@ async function reserveGas(
   gasStationUrl: string,
   gasStationToken: string,
 ): Promise<ReserveGasResult> {
+  console.log("[tx] reserve_gas gas_budget", gasBudget, "url", gasStationUrl);
   const resp = await postJson<any>(`${gasStationUrl}/v1/reserve_gas`, gasStationToken, {
     gas_budget: gasBudget,
     reserve_duration_secs: 10,
@@ -137,6 +138,8 @@ export async function signAndExecute(
   let res: TxExecResult = { success: false, error: new Error("Unknown error") };
 
   try {
+    console.log("[tx] signAndExecute gasBudget", opts.gasBudget, "useGasStation", !!opts.useGasStation);
+
     if (opts.useGasStation) {
       const gs = opts.gasStation;
       if (!gs?.gasStation1URL || !gs?.gasStation1Token) {
