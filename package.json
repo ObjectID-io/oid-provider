@@ -1,6 +1,6 @@
 {
   "name": "@objectid/oid-provider",
-  "version": "1.0.12",
+  "version": "1.1.0",
   "description": "Client-side ObjectID Provider SDK: executes Move calls directly (no backend).",
   "license": "MIT",
   "type": "module",
