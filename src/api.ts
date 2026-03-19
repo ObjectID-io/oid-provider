@@ -29,9 +29,15 @@ export type ObjectIdApi = {
   document_did_string: (params: { id: string }) => string;
 } & TxMethods;
 
+function normalizeGasBudget(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  return 10_000_000;
+}
+
 export function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi {
   let _envPromise: Promise<ResolvedEnv> | null = null;
-  const gasBudget = cfg.gasBudget ?? 10_000_000;
+  const gasBudget = normalizeGasBudget(cfg.gasBudget);
   const useGasStation = !!cfg.useGasStation;
   const gasStation = cfg.gasStation;
 

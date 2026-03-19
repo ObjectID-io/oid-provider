@@ -1,4 +1,4 @@
-import { Transaction } from "@iota/iota-sdk/transactions";
+﻿import { Transaction } from "@iota/iota-sdk/transactions";
 import { IOTA_CLOCK_OBJECT_ID } from "@iota/iota-sdk/utils";
 
 import type { ObjectIdApi } from "../api";
@@ -64,7 +64,7 @@ export async function create_object(api: ObjectIdApi, params: CreateObjectParams
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r: any = await signAndExecute(env.client, env.keyPair, tx, {
@@ -98,7 +98,7 @@ export async function delete_object(api: ObjectIdApi, params: DeleteObjectParams
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -138,7 +138,7 @@ export async function update_agent_did(api: ObjectIdApi, params: UpdateAgentDidP
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -178,7 +178,7 @@ export async function update_geo_location(api: ObjectIdApi, params: UpdateGeoLoc
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -212,7 +212,7 @@ export async function update_geolocation(api: ObjectIdApi, params: UpdateGeoLoca
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -254,7 +254,7 @@ export async function update_object(api: ObjectIdApi, params: UpdateObjectParams
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -294,7 +294,7 @@ export async function update_object_did(api: ObjectIdApi, params: UpdateObjectDi
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -334,7 +334,7 @@ export async function update_object_mutable_metadata(api: ObjectIdApi, params: U
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -374,7 +374,7 @@ export async function update_op_code(api: ObjectIdApi, params: UpdateOpCodeParam
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -414,7 +414,7 @@ export async function update_owner_did(api: ObjectIdApi, params: UpdateOwnerDidP
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -426,3 +426,4 @@ export async function update_owner_did(api: ObjectIdApi, params: UpdateOwnerDidP
   });
   return r;
 }
+

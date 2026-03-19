@@ -1,4 +1,4 @@
-import { Transaction } from "@iota/iota-sdk/transactions";
+﻿import { Transaction } from "@iota/iota-sdk/transactions";
 
 import type { ObjectIdApi } from "../api";
 import { asJsonString } from "../env";
@@ -25,7 +25,7 @@ export async function add_approver_did(api: ObjectIdApi, params: AddApproverDidP
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -56,7 +56,7 @@ export async function add_document_credit(api: ObjectIdApi, params: AddDocumentC
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -88,7 +88,7 @@ export async function add_editors_did(api: ObjectIdApi, params: AddEditorsDidPar
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -127,7 +127,7 @@ export async function append_change_log(api: ObjectIdApi, params: AppendChangeLo
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -164,7 +164,7 @@ export async function approve_document(api: ObjectIdApi, params: ApproveDocument
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -210,7 +210,7 @@ export async function create_document(api: ObjectIdApi, params: CreateDocumentPa
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -241,7 +241,7 @@ export async function delete_document(api: ObjectIdApi, params: DeleteDocumentPa
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -273,7 +273,7 @@ export async function remove_approver_did(api: ObjectIdApi, params: RemoveApprov
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -305,7 +305,7 @@ export async function remove_editors_did(api: ObjectIdApi, params: RemoveEditors
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -345,7 +345,7 @@ export async function update_document_mutable_metadata(
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -377,7 +377,7 @@ export async function update_document_owner_did(api: ObjectIdApi, params: Update
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -409,7 +409,7 @@ export async function update_document_status(api: ObjectIdApi, params: UpdateDoc
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -450,7 +450,7 @@ export async function update_document_url_hash(api: ObjectIdApi, params: UpdateD
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -482,7 +482,7 @@ export async function update_publisher_did(api: ObjectIdApi, params: UpdatePubli
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -494,3 +494,4 @@ export async function update_publisher_did(api: ObjectIdApi, params: UpdatePubli
   });
   return r;
 }
+

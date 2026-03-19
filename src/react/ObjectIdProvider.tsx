@@ -118,7 +118,7 @@ function writeCachedPublic(network: string, cfg: { objectId: string; json: Recor
 }
 
 function mapJsonToProviderConfig(
-  base: { network: string; seed: string; gasBudget: number },
+  base: { network: string; seed: string; gasBudget?: number },
   j: Record<string, any>,
 ): ObjectIdProviderConfig {
   const objectPackages = j.objectPackages ?? j.object_packages;
@@ -147,11 +147,14 @@ function mapJsonToProviderConfig(
 
   const useGasStation = !!(j.useGasStation ?? j.use_gas_station);
   const gasStation = j.gasStation ?? j.gas_station;
+  const gasBudgetFromJson = j.gasBudget ?? j.gas_budget;
+  const gasBudgetRaw = gasBudgetFromJson ?? base.gasBudget;
+  const gasBudget = Number(gasBudgetRaw);
 
   return {
     network: base.network,
     seed: base.seed,
-    gasBudget: base.gasBudget,
+    gasBudget: Number.isFinite(gasBudget) && gasBudget > 0 ? Math.floor(gasBudget) : 10_000_000,
 
     graphqlProvider: String(graphqlProvider),
 
@@ -259,8 +262,10 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
   }, [selectedNetwork]);
 
   const buildApi = useCallback((sess: Session, cfgJson: Record<string, any>) => {
-    const gasBudget = Number(sess.gasBudget ?? 10_000_000);
-    const providerCfg = mapJsonToProviderConfig({ network: sess.network, seed: sess.seed, gasBudget }, cfgJson);
+    const providerCfg = mapJsonToProviderConfig(
+      { network: sess.network, seed: sess.seed, gasBudget: sess.gasBudget },
+      cfgJson,
+    );
     return createObjectIdApi(providerCfg);
   }, []);
 
@@ -428,7 +433,9 @@ export function ObjectID({ configPackageIds, children }: ObjectIDProps) {
           arguments: [tx.pure.vector("u8", bytes)],
         });
 
-        const gasBudget = Number(session.gasBudget ?? 10_000_000);
+        const gasBudgetRaw = json.gasBudget ?? json.gas_budget ?? session.gasBudget;
+        const gasBudgetNum = Number(gasBudgetRaw);
+        const gasBudget = Number.isFinite(gasBudgetNum) && gasBudgetNum > 0 ? Math.floor(gasBudgetNum) : 10_000_000;
         tx.setGasBudget(gasBudget);
         tx.setSender(sender);
 

@@ -1,4 +1,4 @@
-import { Transaction } from "@iota/iota-sdk/transactions";
+﻿import { Transaction } from "@iota/iota-sdk/transactions";
 
 import type { ObjectIdApi } from "../api";
 import { signAndExecute } from "../utils/tx";
@@ -36,7 +36,7 @@ export async function alert_message(api: ObjectIdApi, params: MessageParams) {
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -67,7 +67,7 @@ export async function anonymous_message(api: ObjectIdApi, params: AnonymousMessa
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -102,7 +102,7 @@ export async function control_message(api: ObjectIdApi, params: MessageParams) {
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -137,7 +137,7 @@ export async function creator_message(api: ObjectIdApi, params: MessageParams) {
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -182,7 +182,7 @@ export async function message(api: ObjectIdApi, params: GenericMessageParams) {
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -194,3 +194,4 @@ export async function message(api: ObjectIdApi, params: GenericMessageParams) {
   });
   return r;
 }
+

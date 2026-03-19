@@ -1,4 +1,4 @@
-import { Transaction } from "@iota/iota-sdk/transactions";
+﻿import { Transaction } from "@iota/iota-sdk/transactions";
 import { IOTA_CLOCK_OBJECT_ID } from "@iota/iota-sdk/utils";
 
 import type { ObjectIdApi } from "../api";
@@ -39,7 +39,7 @@ export async function create_event(api: ObjectIdApi, params: CreateEventParams) 
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -154,3 +154,4 @@ export async function update_event_mutable_metadata(api: ObjectIdApi, params: Up
 
   return r;
 }
+

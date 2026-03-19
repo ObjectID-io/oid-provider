@@ -1,4 +1,4 @@
-import { Transaction } from "@iota/iota-sdk/transactions";
+﻿import { Transaction } from "@iota/iota-sdk/transactions";
 
 import type { ObjectIdApi } from "../api";
 import { asJsonString } from "../env";
@@ -39,7 +39,7 @@ export async function create_counter(api: ObjectIdApi, params: CreateCounterPara
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -78,7 +78,7 @@ export async function delete_counter(api: ObjectIdApi, params: DeleteCounterPara
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -119,7 +119,7 @@ export async function counter_set_value(api: ObjectIdApi, params: CounterSetValu
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -158,7 +158,7 @@ export async function counter_stepdown(api: ObjectIdApi, params: CounterStepPara
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -197,7 +197,7 @@ export async function counter_stepup(api: ObjectIdApi, params: CounterStepUpPara
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -209,3 +209,4 @@ export async function counter_stepup(api: ObjectIdApi, params: CounterStepUpPara
   });
   return r;
 }
+

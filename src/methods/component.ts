@@ -1,4 +1,4 @@
-import { Transaction } from "@iota/iota-sdk/transactions";
+﻿import { Transaction } from "@iota/iota-sdk/transactions";
 
 import type { ObjectIdApi } from "../api";
 import { signAndExecute } from "../utils/tx";
@@ -32,7 +32,7 @@ export async function create_component(api: ObjectIdApi, params: CreateComponent
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -71,7 +71,7 @@ export async function delete_component(api: ObjectIdApi, params: DeleteComponent
     target: moveFunction,
   });
 
-  tx.setGasBudget(10_000_000);
+  tx.setGasBudget(gasBudget);
   tx.setSender(env.sender);
 
   const r = await signAndExecute(env.client, env.keyPair, tx, {
@@ -83,3 +83,4 @@ export async function delete_component(api: ObjectIdApi, params: DeleteComponent
   });
   return r;
 }
+
