@@ -112,14 +112,14 @@ export async function delete_object(api: ObjectIdApi, params: DeleteObjectParams
 }
 
 export type UpdateAgentDidParams = {
-  creditToken: ObjectIdString;
+  creditToken?: ObjectIdString;
   controllerCap: ObjectIdString;
   object: ObjectIdString;
   new_agent_did: string;
 };
 
 export async function update_agent_did(api: ObjectIdApi, params: UpdateAgentDidParams) {
-  const { creditToken, controllerCap, object, new_agent_did } = params;
+  const { controllerCap, object, new_agent_did } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
@@ -128,12 +128,10 @@ export async function update_agent_did(api: ObjectIdApi, params: UpdateAgentDidP
 
   tx.moveCall({
     arguments: [
-      tx.object(creditToken),
-      tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.string(String(new_agent_did ?? "")),
-      tx.object("0x6"),
+      tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
   });
@@ -152,14 +150,14 @@ export async function update_agent_did(api: ObjectIdApi, params: UpdateAgentDidP
 }
 
 export type UpdateGeoLocationParams = {
-  creditToken: ObjectIdString;
+  creditToken?: ObjectIdString;
   controllerCap: ObjectIdString;
   object: ObjectIdString;
   new_location: string;
 };
 
 export async function update_geo_location(api: ObjectIdApi, params: UpdateGeoLocationParams) {
-  const { creditToken, controllerCap, object, new_location } = params;
+  const { controllerCap, object, new_location } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
@@ -168,8 +166,6 @@ export async function update_geo_location(api: ObjectIdApi, params: UpdateGeoLoc
 
   tx.moveCall({
     arguments: [
-      tx.object(creditToken),
-      tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.string(String(new_location ?? "")),
@@ -193,7 +189,7 @@ export async function update_geo_location(api: ObjectIdApi, params: UpdateGeoLoc
 
 // Back-compat alias (same Move target)
 export async function update_geolocation(api: ObjectIdApi, params: UpdateGeoLocationParams) {
-  const { creditToken, controllerCap, object, new_location } = params;
+  const { controllerCap, object, new_location } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
@@ -202,12 +198,10 @@ export async function update_geolocation(api: ObjectIdApi, params: UpdateGeoLoca
 
   tx.moveCall({
     arguments: [
-      tx.object(creditToken),
-      tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.string(String(new_location ?? "")),
-      tx.object("0x6"),
+      tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
   });
@@ -388,14 +382,14 @@ export async function update_op_code(api: ObjectIdApi, params: UpdateOpCodeParam
 }
 
 export type UpdateOwnerDidParams = {
-  creditToken: ObjectIdString;
+  creditToken?: ObjectIdString;
   controllerCap: ObjectIdString;
   object: ObjectIdString;
   new_owner_did: string;
 };
 
 export async function update_owner_did(api: ObjectIdApi, params: UpdateOwnerDidParams) {
-  const { creditToken, controllerCap, object, new_owner_did } = params;
+  const { controllerCap, object, new_owner_did } = params;
   const env = await api.env();
   const gasBudget = api.gasBudget;
 
@@ -404,12 +398,10 @@ export async function update_owner_did(api: ObjectIdApi, params: UpdateOwnerDidP
 
   tx.moveCall({
     arguments: [
-      tx.object(creditToken),
-      tx.object(env.policy),
       tx.object(controllerCap),
       tx.object(object),
       tx.pure.string(String(new_owner_did ?? "")),
-      tx.object("0x6"),
+      tx.object(IOTA_CLOCK_OBJECT_ID),
     ],
     target: moveFunction,
   });

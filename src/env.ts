@@ -100,14 +100,19 @@ export async function resolveEnv(cfg: ObjectIdProviderConfig): Promise<ResolvedE
 
   const packageID = objectPackages[objVer];
   const documentPackageID = documentPackages[docVer];
+  const creditPackageID = mustNonEmpty(
+    "OIDcreditPackage",
+    (cfg as any).OIDcreditPackage ?? (cfg as any).oidCreditPackage,
+    cfg as any,
+  );
 
   const client = new IotaClient({ url: getFullnodeUrl(net as any) });
   const effectiveSeed = await deriveSeedHex(seed, cfg.seedPath);
   const keyPair = Ed25519Keypair.deriveKeypairFromSeed(effectiveSeed);
   const sender = keyPair.toIotaAddress();
 
-  const tokenCreditType = `0x2::token::Token<${packageID}::oid_credit::OID_CREDIT>`;
-  const policyTokenType = `0x2::token::TokenPolicy<${packageID}::oid_credit::OID_CREDIT>`;
+  const tokenCreditType = `0x2::token::Token<${creditPackageID}::oid_credit::OID_CREDIT>`;
+  const policyTokenType = `0x2::token::TokenPolicy<${creditPackageID}::oid_credit::OID_CREDIT>`;
   const OIDobjectType = `${packageID}::oid_object::OIDObject`;
 
   // Discover the policy object id via GraphQL (required for Move calls)
