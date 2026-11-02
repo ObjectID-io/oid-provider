@@ -29,6 +29,7 @@ export type gasStationCfg = {
 };
 
 export type ObjectIdProviderConfig = {
+  sponsorship?: import("../sponsorship").SponsorshipConfig;
   network: string;
   seed: string;
 

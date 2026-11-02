@@ -164,6 +164,7 @@ function mapJsonToProviderConfig(
     objectDefaultPackageVersion: Number(objectDefaultPackageVersion) || 0,
     documentDefaultPackageVersion: Number(documentDefaultPackageVersion) || 0,
 
+    sponsorship: j.sponsorship,
     useGasStation,
     gasStation: gasStation && typeof gasStation === "object" ? gasStation : undefined,
   };

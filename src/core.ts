@@ -1,5 +1,5 @@
 // Server-safe entrypoint (no React exports)
-export type { ObjectIdProviderConfig, TxExecResult, ObjectEdge } from "./types/types";
+export type { ObjectIdProviderConfig, TxExecResult, ObjectEdge, gasStationCfg } from "./types/types";
 
 // Core API
 export type { ObjectIdApi, TxMethodName, TxMethods, MethodParams, MethodReturn } from "./api";
@@ -19,3 +19,7 @@ export {
   dlvcProxyUrl,
 } from "./onchain/config";
 export { DEFAULT_CONFIG_PACKAGE_IDS, DEFAULT_SHARED_CONFIG_OBJECT_ID, type CanonicalNetwork } from "./onchain/defaults";
+
+export { signAndExecute } from "./utils/tx";
+export { prepareSponsoredGas, applySponsorGas, submitSponsoredBytes, sponsorshipMode } from "./sponsorship";
+export type { PreparedSponsorGas, SponsorshipConfig } from "./sponsorship";

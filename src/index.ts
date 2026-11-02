@@ -1,4 +1,4 @@
-export type { ObjectIdProviderConfig, TxExecResult, ObjectEdge } from "./types/types";
+export type { ObjectIdProviderConfig, TxExecResult, ObjectEdge, gasStationCfg } from "./types/types";
 
 // Core API
 export type { ObjectIdApi, TxMethodName, TxMethods, MethodParams, MethodReturn } from "./api";
@@ -27,3 +27,7 @@ export * from "./methods";
 
 // Utilities
 export { asJsonString } from "./env";
+
+export { signAndExecute } from "./utils/tx";
+export { prepareSponsoredGas, applySponsorGas, submitSponsoredBytes, sponsorshipMode } from "./sponsorship";
+export type { PreparedSponsorGas, SponsorshipConfig } from "./sponsorship";

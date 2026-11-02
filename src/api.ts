@@ -20,6 +20,7 @@ export type TxMethods = {
 export type ObjectIdApi = {
   env: () => Promise<ResolvedEnv>;
   gasBudget: number;
+  sponsorship?: import("./sponsorship").SponsorshipConfig;
   useGasStation: boolean;
   gasStation?: import("./types/types").gasStationCfg;
 
@@ -55,6 +56,7 @@ export function createObjectIdApi(cfg: ObjectIdProviderConfig): ObjectIdApi {
     gasBudget,
     useGasStation,
     gasStation,
+    sponsorship: cfg.sponsorship,
 
     async get_object({ objectId }: { objectId: string }) {
       const e = await env();
